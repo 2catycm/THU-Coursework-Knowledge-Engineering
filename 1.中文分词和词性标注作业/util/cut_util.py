@@ -4,33 +4,65 @@ from tqdm import tqdm
 
 
 def maximum_match_cut(
-    text: str, vocab: set, max_size: int = 4
-) -> List[Tuple[int, int]]:
+    text: str, # input text to be parsed
+    vocab: set, # word set
+    max_size: int = 4 # considered maximum length of words
+) -> List[Tuple[int, int]]: # result, list of index pair indicating parsed words, e.g. [(0, 3), (3, 5), ...]
     """
     maximum matching algo
-    Args:
-      text: str, input text to be parsed
-      vocab: set, word set
-      max_size: considered maximum length of words
-    Returns:
-      result: List[tuple], list of index pair indicating parsed words, e.g. [(0, 3), (3, 5), ...]
     """
     result = []
-    # TODO
+    left, right = 0, max_size
+    while left < len(text): # 左边指针的左边是已经分词好的，右边是未分词的
+        while right > left: # 从最大长度开始找，直到找到一个词
+            current_str = text[left:right]
+            if current_str in vocab:
+                result.append((left, right))
+                break # break 内循环
+            right -= 1
+        if right == left: # 如果找不到词，就把一个字当做一个词
+            right = left + 1 
+            result.append((left, right))
+        # 现在已经有一个词了，更新左右指针，开始下一个词
+        left = right
+        right = left + max_size
+        
     return result
 
 
-def get_final_result(backward_result: List[Tuple], forward_result: List[Tuple]):
+
+# 双向最大匹配
+def count_single_words(result: List[Tuple[int, int]]) -> int:
+    """
+    count single words in the result
+    """
+    return sum(1 for start, end in result if end - start == 1)
+
+from collections import Counter
+running_stats = Counter()
+
+def get_final_result(
+    backward_result: List[Tuple], forward_result: List[Tuple]
+) -> List[Tuple]:  # result
     """
     return final result given backward matching result and forward matching result
-    Args:
-      backward_result: List[Tuple]
-      forward_result: List[Tuple]
-    Returns:
-      result: List[Tuple]
     """
-    # TODO
-    raise NotImplementedError
+    # 如果两个结果一样，就返回
+    if backward_result == forward_result: # python的list == 是正确的。
+        return backward_result
+    else:
+        results = [backward_result, forward_result]
+        idx = min(
+            (0, 1),  
+            key=lambda idx: (
+                len(results[idx]),  # 先看分词数量，越少越好
+                count_single_words(results[idx]),  # 再看单字词数量，越少越好
+                idx # 最后看元组中的顺序，
+            ),
+        )
+        running_stats.update([idx])
+        return results[idx]
+
 
 
 import jieba
