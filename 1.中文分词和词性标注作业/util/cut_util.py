@@ -1,4 +1,4 @@
-from typing import *
+from typing import List, Tuple
 import jieba
 from tqdm import tqdm
 
@@ -33,27 +33,52 @@ def get_final_result(backward_result: List[Tuple], forward_result: List[Tuple]):
     raise NotImplementedError
 
 
-def jieba_cut(valid_text: List[str]):
-    """
-    use jieba to cut
-    Args:
-      valid_text: List[str]
-    Returns:
-      jieba_result: List[List[Tuple]]
-    """
-    jieba_result = []
-    # TODO
-    return jieba_result
+import jieba
 
+from collections import Counter
+def jieba_cut(
+    valid_text: List[str], 
+    train_set = None # 我们新增加的参数，让jieba可以优先使用训练集的词汇
+) -> List[List[Tuple]]:  # jieba_result
+    """use jieba to cut"""
+    # 增加词库
+    if train_set is not None:
+        counter = Counter([word for sent in train_set for word in sent])
+        for word, freq in counter.items():
+            jieba.add_word(word, freq)
+    # 分词
+    return [
+        [res[1:] for res in jieba.tokenize(text, "default", True)]
+        for text in valid_text
+    ]
 
-def evaluate(prediction: List[List[tuple]], target: List[List[tuple]]):
-    """
-    Span-level metric calculation, return precision, recall, and f1
-    Args:
-      prediction: List[List[tuple]], each tuple is an index pair indicating one parsed word
-      target: List[List[tuple]], same as above
-    Returns:
-      (precision, recall, f1): Tuple[float]
-    """
-    # TODO
-    raise NotImplementedError
+def evaluate(
+    prediction: List[List[Tuple[int, int]]],  # [sentence, word] -> [start, end]
+    target: List[List[Tuple[int, int]]],  # [sentence, word] -> [start, end]
+    macro_or_micro: bool = True,  # True for macro, False for micro
+    beta:float = 1.0, # beta for f beta
+) -> Tuple[float, float, float]: # precision, recall, f beta
+    # Span-level metric calculation, return precision, recall, and f beta
+    true_positives: List[int] = []  # 每一个句子计算 有多少个 正确
+    positives: List[int] = []  # 预测了多少个东西
+    real_positives: List[int] = []  # 实际有多少个东西
+    for i in range(len(prediction)):
+        pred = set(prediction[i])
+        tar = set(target[i])
+        true_positives.append(len(pred & tar))
+        positives.append(len(pred))
+        real_positives.append(len(tar))
+    if macro_or_micro:
+        # macro average
+        # 每个句子单独求 P, R 然后求平均
+        precision = sum(map(lambda i:true_positives[i]/positives[i] if positives[i] >0 else 0,
+                             range(len(prediction)))) / len(prediction)
+        recall = sum(map(lambda i:true_positives[i]/real_positives[i] if real_positives[i] >0 else 0
+                         , range(len(prediction))) ) / len(prediction)
+    else:
+        # micro average
+        # 求出单词级别的总体的 P, R
+        precision = sum(true_positives) / sum(positives) if sum(positives) > 0 else 0
+        recall = sum(true_positives) / sum(real_positives) if sum(real_positives) > 0 else 0
+    f_beta = (1 + beta**2) * precision * recall / (beta**2 * precision + recall)
+    return precision, recall, f_beta
