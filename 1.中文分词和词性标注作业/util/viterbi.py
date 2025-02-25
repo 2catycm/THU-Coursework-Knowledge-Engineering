@@ -10,7 +10,7 @@ class HMM:
     Attributes:
         total_states (int): number of states, N
         pi (array, with shape (N,)): initial state probability
-        A (array, with shape (N, N)): log transition probability. 
+        A (array, with shape (N, N)): log transition probability.
                                       A[i, j] means log transition prob from state i to state j.
                                       A.T[i, j] means log transition prob from state j to state i.
         B (array, with shape (N, T)): log emitting probability.
@@ -23,7 +23,6 @@ class HMM:
         self.pi = pi
         self.A = A
         self.B = B
-
 
     def viterbi(self, ob):
         """Viterbi Decoding Algorithm.
@@ -50,5 +49,6 @@ class HMM:
         # TODO, note that we are using log probability matrix here
 
         return best_path
+
 
 # %%

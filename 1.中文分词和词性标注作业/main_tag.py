@@ -38,7 +38,9 @@ train_labels = transform(train_labels, lambda x: tag_vocab.get(x, 0))
 print(train_text[0], "\n", train_labels[0])
 
 # 计算初始概率、转移概率和发射概率矩阵
-initial, transmission, emission = compute_count_matrix(train_text, train_labels, text_vocab, tag_vocab)
+initial, transmission, emission = compute_count_matrix(
+    train_text, train_labels, text_vocab, tag_vocab
+)
 # smoothing
 smooth = 0.5
 initial += 0.5
@@ -48,8 +50,18 @@ emission += 0.5
 """
 convert to log probability to ensure computational stability
 """
-normalize = lambda matrix: np.log(np.einsum("ij,i->ij" if len(matrix.shape) == 2 else "i,->i", matrix, 1 / (matrix.sum(axis=-1) + 1e-8)))
-initial, transmission, emission = normalize(initial), normalize(transmission), normalize(emission)
+normalize = lambda matrix: np.log(
+    np.einsum(
+        "ij,i->ij" if len(matrix.shape) == 2 else "i,->i",
+        matrix,
+        1 / (matrix.sum(axis=-1) + 1e-8),
+    )
+)
+initial, transmission, emission = (
+    normalize(initial),
+    normalize(transmission),
+    normalize(emission),
+)
 print(f"{initial=},\n{transmission=},\n{emission=}")
 
 # 使用viterbi动态规划在验证集上解码
@@ -65,9 +77,11 @@ valid_prediction_flatten = [tag_list[tag] for item in valid_prediction for tag i
 valid_labels_flatten = [tag for item in valid_labels for tag in item]
 print(valid_prediction_flatten[:10], "\n", valid_labels_flatten[:10])
 
-precision, recall, f1, _ = precision_recall_fscore_support(valid_labels_flatten, valid_prediction_flatten, average="micro")
-print(f"total={len(valid_prediction_flatten)},correct={sum(i1 == i2 for i1, i2 in zip(valid_prediction_flatten, valid_labels_flatten))}")
+precision, recall, f1, _ = precision_recall_fscore_support(
+    valid_labels_flatten, valid_prediction_flatten, average="micro"
+)
+print(
+    f"total={len(valid_prediction_flatten)},correct={sum(i1 == i2 for i1, i2 in zip(valid_prediction_flatten, valid_labels_flatten))}"
+)
 print("micro")
 print(f"{precision=},{recall=},{f1=}")
-
-

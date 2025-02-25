@@ -7,7 +7,17 @@ from util.cut_util import maximum_match_cut, get_final_result, jieba_cut, evalua
 
 # 预处理
 lines = open("./data/corpu.txt", "r+", encoding="gbk").readlines()
-corpus = list(map(lambda line: list(map(lambda item: re.sub(r"^\[|/[a-zA-Z]+", "", item), line.strip().split(" "))), lines))
+corpus = list(
+    map(
+        lambda line: list(
+            map(
+                lambda item: re.sub(r"^\[|/[a-zA-Z]+", "", item),
+                line.strip().split(" "),
+            )
+        ),
+        lines,
+    )
+)
 print("Corpus Size:", len(corpus))
 print("Corpus Samples:", corpus[:3])
 
@@ -41,7 +51,9 @@ for item in tqdm(valid_text):
     forward_result = maximum_match_cut(item, vocab, max_size=max_size)
     backward_result = maximum_match_cut(item[::-1], inverted_vocab, max_size=max_size)
     # re-compute backward matching index
-    backward_result = [(len(item) - i[1], len(item) - i[0]) for i in backward_result[::-1]]
+    backward_result = [
+        (len(item) - i[1], len(item) - i[0]) for i in backward_result[::-1]
+    ]
     result = get_final_result(backward_result, forward_result)
     valid_result.append(result)
 print("Result Sample:", valid_result[0])

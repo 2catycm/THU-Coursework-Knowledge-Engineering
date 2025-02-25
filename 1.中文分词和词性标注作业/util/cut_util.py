@@ -2,7 +2,10 @@ from typing import *
 import jieba
 from tqdm import tqdm
 
-def maximum_match_cut(text: str, vocab: set, max_size: int=4) -> List[Tuple[int, int]]:
+
+def maximum_match_cut(
+    text: str, vocab: set, max_size: int = 4
+) -> List[Tuple[int, int]]:
     """
     maximum matching algo
     Args:
@@ -16,6 +19,7 @@ def maximum_match_cut(text: str, vocab: set, max_size: int=4) -> List[Tuple[int,
     # TODO
     return result
 
+
 def get_final_result(backward_result: List[Tuple], forward_result: List[Tuple]):
     """
     return final result given backward matching result and forward matching result
@@ -27,6 +31,7 @@ def get_final_result(backward_result: List[Tuple], forward_result: List[Tuple]):
     """
     # TODO
     raise NotImplementedError
+
 
 def jieba_cut(valid_text: List[str]):
     """
@@ -43,7 +48,7 @@ def jieba_cut(valid_text: List[str]):
 
 def evaluate(prediction: List[List[tuple]], target: List[List[tuple]]):
     """
-    Span-level metric calculation, return precision, recall, and f1 
+    Span-level metric calculation, return precision, recall, and f1
     Args:
       prediction: List[List[tuple]], each tuple is an index pair indicating one parsed word
       target: List[List[tuple]], same as above

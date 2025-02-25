@@ -2,6 +2,7 @@ import numpy as np
 import re
 from typing import *
 
+
 def preprocess(lines):
     lines = list(filter(lambda x: len(x.strip()) > 0, lines))
     all_text, all_labels = [], []
@@ -17,7 +18,13 @@ def preprocess(lines):
     print(all_text[0], "\n", all_labels[0])
     return all_text, all_labels
 
-def compute_count_matrix(train_text: List[List[int]], train_labels: List[List[int]], text_vocab: dict, tag_vocab: dict):
+
+def compute_count_matrix(
+    train_text: List[List[int]],
+    train_labels: List[List[int]],
+    text_vocab: dict,
+    tag_vocab: dict,
+):
     """
     compute frequency matrix for training data
     Args:
@@ -35,5 +42,5 @@ def compute_count_matrix(train_text: List[List[int]], train_labels: List[List[in
     emission = np.zeros((len(tag_vocab), len(text_vocab)))
 
     # TODO
-    
+
     return initial, transmission, emission

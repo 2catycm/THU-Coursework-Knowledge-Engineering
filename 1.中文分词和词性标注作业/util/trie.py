@@ -1,4 +1,3 @@
-
 class Node:
     def __init__(self, c):
         self.data = c
@@ -8,11 +7,12 @@ class Node:
     def insert(self, c):
         self.next[c] = Node(c)
 
+
 class Trie:
     def __init__(self, reverse=False):
         self.root = Node("")
-        self.reverse= reverse
-    
+        self.reverse = reverse
+
     def insert(self, word):
         if self.reverse:
             word = word[::-1]
@@ -26,7 +26,7 @@ class Trie:
     def search(self, text):
         if self.reverse:
             text = text[::-1]
-        result = [] # [(span1, span2), ...]
+        result = []  # [(span1, span2), ...]
         i = 0
         cur = self.root
         while i < len(text):
@@ -41,16 +41,17 @@ class Trie:
                 end_tmp = start_tmp + 1
             i = end_tmp
             if self.reverse:
-                result.append((len(text)-end_tmp, len(text)-start_tmp))
+                result.append((len(text) - end_tmp, len(text) - start_tmp))
             else:
                 result.append((start_tmp, end_tmp))
             cur = self.root
         return result
 
+
 # %%
-if __name__ == '__main__':
-    text = '迈向 充满 希望 的 新 世纪 —— 一九九八年 新年 讲话 （ 附 图片 １ 张 ）'
-    dic = text.split(' ')
+if __name__ == "__main__":
+    text = "迈向 充满 希望 的 新 世纪 —— 一九九八年 新年 讲话 （ 附 图片 １ 张 ）"
+    dic = text.split(" ")
     print(dic)
 
     i = 0
@@ -62,8 +63,8 @@ if __name__ == '__main__':
     trie = Trie()
     for w in dic:
         trie.insert(w)
-    res = trie.search(text.replace(' ', ''))
-    
+    res = trie.search(text.replace(" ", ""))
+
     print(res)
 
     print(set(labels).difference(set(res)))
