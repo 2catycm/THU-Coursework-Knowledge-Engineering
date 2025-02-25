@@ -6,6 +6,11 @@ from sklearn.metrics import precision_recall_fscore_support
 from util.tag_util import preprocess, compute_count_matrix
 from util.viterbi import HMM
 
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("--smooth", type=float, default=0.5)
+args = parser.parse_args()
+
 # 数据集预处理
 lines = open("./data/corpus_POS.txt", "r+", encoding="gbk").readlines()
 all_text, all_labels = preprocess(lines)
@@ -42,10 +47,10 @@ initial, transmission, emission = compute_count_matrix(
     train_text, train_labels, text_vocab, tag_vocab
 )
 # smoothing
-smooth = 0.5
-initial += 0.5
-transmission += 0.5
-emission += 0.5
+smooth = args.smooth
+initial += smooth
+transmission += smooth
+emission += smooth
 
 """
 convert to log probability to ensure computational stability
