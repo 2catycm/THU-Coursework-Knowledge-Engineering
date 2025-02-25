@@ -12,20 +12,28 @@ class Trie:
     def __init__(self, reverse=False):
         self.root = Node("")
         self.reverse = reverse
+        self.size = 0
+    
+    def __len__(self):
+        return self.size
 
     def insert(self, word):
         if self.reverse:
             word = word[::-1]
         current = self.root
+        not_inserted = False
         for c in word:
             if c not in current.next:
+                not_inserted = True
                 current.insert(c)
             current = current.next[c]
+        if not_inserted:
+            self.size += 1
         current.is_leaf = True
 
     def search(self, text):
-        if self.reverse:
-            text = text[::-1]
+        # if self.reverse:
+        #     text = text[::-1]
         result = []  # [(span1, span2), ...]
         i = 0
         cur = self.root

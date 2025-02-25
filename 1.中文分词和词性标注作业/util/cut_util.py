@@ -29,6 +29,18 @@ def maximum_match_cut(
         
     return result
 
+from util.trie import Trie
+
+def maximum_match_cut_fast(
+    text: str, # input text to be parsed
+    vocab: Trie, # word set trie
+    max_size: int = 4 # considered maximum length of words
+) -> List[Tuple[int, int]]: # result, list of index pair indicating parsed words, e.g. [(0, 3), (3, 5), ...]
+    """
+    maximum matching algo
+    """
+    return vocab.search(text)
+
 
 
 # 双向最大匹配
