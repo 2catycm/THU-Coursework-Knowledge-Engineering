@@ -1,13 +1,24 @@
 # %%
+import argparse
+from ast import arg
 from data_utils import sent2features, sent2labels, sent2tokens, read_examples_from_file
 import pycrfsuite
 from nervaluate import Evaluator
 
-mode = "bio"
+argparser = argparse.ArgumentParser()
+argparser.add_argument("--mode", default="bio", type=str)
+argparser.add_argument("--use_simple_feature_only", action="store_true")
+args = argparser.parse_args()
+
+
+mode = args.mode
+simple = args.use_simple_feature_only
+
 
 train_file = f"./data/processed/train1_{mode}.txt"
 test_file = f"./data/processed/testright_{mode}.txt"
-model = f"./msra_{mode}.crfsuite"
+model = f"./msra_{mode}_{simple}.crfsuite"
+
 # %%
 if __name__ == "__main__":
     # read data
@@ -21,9 +32,19 @@ if __name__ == "__main__":
     y_test = [sent2labels(s) for s in testset]
     # training
     #############
-    # TODO
     # buld trainer with pycrfsuite and set related hyper-parameters
-    trainer = None  # comment this after defining your own trainer
+    import pycrfsuite
+
+    trainer = pycrfsuite.Trainer(verbose=True)
+    trainer.set_params(
+        {
+            "c1": 1.0,  # coefficient for L1 penalty
+            "c2": 1e-3,  # coefficient for L2 penalty
+            "max_iterations": 50,  # stop earlier
+            # include transitions that are possible, but not observed
+            "feature.possible_transitions": True,
+        }
+    )
     ##################
 
     for xseq, yseq in zip(X_train, y_train):
