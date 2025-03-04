@@ -64,6 +64,9 @@ if __name__ == "__main__":
     tags.remove("O")
     evaluator = Evaluator(labels, pred, tags=tags, loader="list")
 
-    results, results_by_tag = evaluator.evaluate()
-    print(results_by_tag)
+    # results, results_per_tag = evaluator.evaluate()
+    results, results_per_tag, result_indices, result_indices_by_tag = evaluator.evaluate()
+    print(results_per_tag)
     print(results)
+    print(result_indices)
+    print(result_indices_by_tag)

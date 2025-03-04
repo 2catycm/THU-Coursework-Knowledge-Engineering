@@ -9,7 +9,7 @@ from typing import *
 
 logger = logging.getLogger(__name__)
 
-from pyhanlp import HanLP
+# from pyhanlp import HanLP
 
 class InputExample(object):
     """A single training/test example for token classification."""
@@ -37,7 +37,7 @@ class InputExample(object):
     def get_postags(self):
         if hasattr(self, "postags"):
             return self.postags
-        HanLP.parse('我的希望是希望张晚霞的背影被晚霞映红。', tasks='pos/pku')
+        # HanLP.parse('我的希望是希望张晚霞的背影被晚霞映红。', tasks='pos/pku')
 
 
 
@@ -62,7 +62,7 @@ def read_examples_from_file(
         words = []
         labels = [] if mode!="real_test" else None
         for line in sentence.split("\n"):
-            word, label = line.split("\t")
+            word, label = line.split()
             words.append(word)
             if mode!="real_test":
                 labels.append(label)
