@@ -25,10 +25,10 @@ if __name__ == "__main__":
     trainset = read_examples_from_file(train_file, "train")
     testset = read_examples_from_file(test_file, "test")
 
-    X_train = [sent2features(s) for s in trainset]
+    X_train = [sent2features(s, simple) for s in trainset]
     y_train = [sent2labels(s) for s in trainset]
 
-    X_test = [sent2features(s) for s in testset]
+    X_test = [sent2features(s, simple) for s in testset]
     y_test = [sent2labels(s) for s in testset]
     # training
     #############
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     tagger.open(model)
 
     labels = [sent2labels(s) for s in testset]
-    pred = [tagger.tag(sent2features(s)) for s in testset]
+    pred = [tagger.tag(sent2features(s, simple)) for s in testset]
 
     tags = []
     for label in labels:

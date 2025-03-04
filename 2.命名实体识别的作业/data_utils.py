@@ -34,10 +34,8 @@ class InputExample(object):
     def get_full_sentence(self):
         return "".join(self.words)
     
-    def get_postags(self):
-        if hasattr(self, "postags"):
-            return self.postags
-        # HanLP.parse('我的希望是希望张晚霞的背影被晚霞映红。', tasks='pos/pku')
+    # def get_postags(self):
+        
 
 
 
@@ -70,18 +68,55 @@ def read_examples_from_file(
 
     return examples
 
+from pypinyin import pinyin
+
+from typing import List
 def is_chinese_char(char):
     """判断字符是否为中文"""
     return '\u4e00' <= char <= '\u9fff'
 
+from cnradical import Radical, RunOption
+radical = Radical(RunOption.Radical)
 
-def single_word2features(word: str, prefix=""):
-    return [f'{prefix}word.lower={ word.lower()}',
-            f'{prefix}word.istitle={word.istitle()}',
-            f'{prefix}word.isupper={word.isupper()}',
-            f'{prefix}word.isdigit={word.isdigit()}',
-            f'{prefix}word.ischinese={all([is_chinese_char(c) for c in word])}']
 
+strokes = []
+
+def get_stroke(c, strokes_path="data/strokes.txt"):
+    # 如果返回 0, 则也是在unicode中不存在kTotalStrokes字段
+    global strokes
+    if not strokes:
+        with open(strokes_path, 'r') as fr:
+            for line in fr:
+                strokes.append(int(line.strip()))
+ 
+    unicode_ = ord(c)
+ 
+    if 13312 <= unicode_ <= 64045:
+        return strokes[unicode_-13312]
+    elif 131072 <= unicode_ <= 194998:
+        return strokes[unicode_-80338]
+    else:
+        # print("c should be a CJK char, or not have stroke in unihan data.")
+        # can also 
+        return 0
+
+def single_word2features(
+    word: str, prefix="", use_simple_feature_only: bool = True
+) -> List[str]:
+    features = [
+        f"{prefix}word.lower={word.lower()}",
+        f"{prefix}word.istitle={word.istitle()}",
+        f"{prefix}word.isupper={word.isupper()}",
+        f"{prefix}word.isdigit={word.isdigit()}",
+        f"{prefix}word.ischinese={is_chinese_char(word)}",
+    ]
+    if not use_simple_feature_only:
+        features += [
+            f"{prefix}word.pinyin={pinyin(word)[0][0]}",
+            f"{prefix}word.radical={radical.trans_ch(word)}",
+            f"{prefix}word.stroke={get_stroke(word)}",
+        ]
+    return features
 
 
 def word2features(sent: InputExample, # InputExample
@@ -95,24 +130,24 @@ def word2features(sent: InputExample, # InputExample
     word = sent.words[i]
     # if not hasattr(sent, "postags"):
         
-    features = single_word2features(word)
+    features = single_word2features(word, "", use_simple_feature_only)
     if i > 0:
         word1 = sent.words[i-1]
-        features += single_word2features(word1, "-1:")
+        features += single_word2features(word1, "-1:", use_simple_feature_only)
     else:
         features.append('BOS') # 句子开头
         
     if i < len(sent)-1:
         word1 = sent.words[i+1]
-        features += single_word2features(word1, "+1:")
+        features += single_word2features(word1, "+1:", use_simple_feature_only)
     else:
         features.append('EOS')
                 
     return features
 
 
-def sent2features(sent: InputExample):
-    return [word2features(sent, i) for i in range(len(sent))]
+def sent2features(sent: InputExample, use_simple_feature_only: bool = True):
+    return [word2features(sent, i, use_simple_feature_only) for i in range(len(sent))]
 
 
 def sent2labels(sent: InputExample):
