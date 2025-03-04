@@ -13,7 +13,7 @@ class Trie:
         self.root = Node("")
         self.reverse = reverse
         self.size = 0
-    
+
     def __len__(self):
         return self.size
 

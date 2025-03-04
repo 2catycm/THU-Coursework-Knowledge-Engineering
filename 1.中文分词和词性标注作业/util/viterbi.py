@@ -21,6 +21,8 @@ class HMM:
         #   B[i, k] means log emitting prob from state i to observation k.
     ):
         store_attr()
+
+
 @patch
 def viterbi(
     self: HMM,  # 把方法绑定到类上
@@ -57,7 +59,9 @@ def viterbi(
     # 首先确定最后一个状态是什么
     best_path[-1] = np.argmax(delta[-1])
     # 然后根据phi回溯
-    for t in range(-2, -(T+1), -1): # -2 一直到 -T
+    for t in range(-2, -(T + 1), -1):  # -2 一直到 -T
         best_path[t] = phi[t + 1, best_path[t + 1]]
     return best_path
+
+
 # %%

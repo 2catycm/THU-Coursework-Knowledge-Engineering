@@ -7,6 +7,7 @@ from util.tag_util import preprocess, compute_count_matrix
 from util.viterbi import HMM
 
 import argparse
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--smooth", type=float, default=0.5)
 args = parser.parse_args()

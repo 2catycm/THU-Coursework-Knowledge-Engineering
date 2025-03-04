@@ -19,7 +19,7 @@ def preprocess(lines):
     return all_text, all_labels
 
 
-#| export
+# | export
 import numpy as np
 
 
@@ -42,12 +42,12 @@ def compute_count_matrix(
 
     for sentence, labels in zip(train_text, train_labels):
         # 句子首词的词性
-        initial[labels[0]] += 1 
-        # 词性转移 
+        initial[labels[0]] += 1
+        # 词性转移
         for i in range(1, len(labels)):
             transmission[labels[i - 1], labels[i]] += 1
         # 词性转移到某个词语的次数
         for word, label in zip(sentence, labels):
             emission[label, word] += 1
-            
+
     return initial, transmission, emission

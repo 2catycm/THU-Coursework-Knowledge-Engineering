@@ -47,12 +47,11 @@ vocab_trie = Trie()
 inverted_vocab_trie = Trie(reverse=True)
 for sent in train_set:
     for word in sent:
-        if len(word) <=4:
+        if len(word) <= 4:
             vocab_trie.insert(word)
             inverted_vocab_trie.insert(word[::-1])
 
 print("Vocab Size:", len(vocab_trie))
-
 
 
 # 验证集重构
@@ -68,13 +67,16 @@ print("Valid Sample:\n", valid_text[0], "\n", valid_label[0])
 
 
 from util.cut_util import maximum_match_cut_fast
+
 if args.my_method:
     # 计算双向匹配法分词结果
     max_size = 4
     valid_result = []
     for item in tqdm(valid_text):
         forward_result = maximum_match_cut_fast(item, vocab_trie, max_size=max_size)
-        backward_result = maximum_match_cut_fast(item[::-1], inverted_vocab_trie, max_size=max_size)
+        backward_result = maximum_match_cut_fast(
+            item[::-1], inverted_vocab_trie, max_size=max_size
+        )
         # re-compute backward matching index
         backward_result = [
             (len(item) - i[1], len(item) - i[0]) for i in backward_result[::-1]
@@ -87,7 +89,9 @@ if args.my_method:
     # 计算效果指标
     for macro_or_micro in [True, False]:
         p, r, f = evaluate(valid_result, valid_label, macro_or_micro=macro_or_micro)
-        print(f"双向最大匹配算法, precision={p}, recall={r}, f1={f}, macro_or_micro={macro_or_micro}")
+        print(
+            f"双向最大匹配算法, precision={p}, recall={r}, f1={f}, macro_or_micro={macro_or_micro}"
+        )
 
 if args.jieba_method:
     # 使用jieba进行分词
@@ -96,7 +100,10 @@ if args.jieba_method:
     jieba_result_with_vocab = jieba_cut(valid_text, train_set=train_set)
 
     for macro_or_micro in [True, False]:
-        for result, name in zip([jieba_result, jieba_result_with_vocab], ["默认模式", "增加训练集词库"]):
+        for result, name in zip(
+            [jieba_result, jieba_result_with_vocab], ["默认模式", "增加训练集词库"]
+        ):
             p, r, f = evaluate(result, valid_label, macro_or_micro=macro_or_micro)
-            print(f"jieba分词({name}), precision={p}, recall={r}, f1={f}, macro_or_micro={macro_or_micro}")
-
+            print(
+                f"jieba分词({name}), precision={p}, recall={r}, f1={f}, macro_or_micro={macro_or_micro}"
+            )
