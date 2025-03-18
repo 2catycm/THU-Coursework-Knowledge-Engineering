@@ -4,6 +4,7 @@ import numpy as np
 import gensim
 from tqdm import tqdm
 
+
 def load_text(file):
     print(f"loading from {file}")
     text = []
@@ -24,13 +25,17 @@ def load_word2vec_model(file=None, vector_size=100):
         word2vec_model = gensim.models.word2vec.Word2Vec.load("word2vec")
     else:
         text = load_text(file)
-        # TODO
-        # hint: use gensim.models.word2vec.Word2Vec
-        raise NotImplementedError
+        # Train word2vec model with gensim
+        word2vec_model = gensim.models.word2vec.Word2Vec(
+            sentences=text, vector_size=vector_size, window=5, min_count=1, workers=4
+        )
         word2vec_model.save("word2vec")
     return word2vec_model
 
-def get_word_embeddings(word2vec_model, vector_size=100, pad_token="<PAD>", unk_token="<UNK>"):
+
+def get_word_embeddings(
+    word2vec_model, vector_size=100, pad_token="<PAD>", unk_token="<UNK>"
+):
     text_vocab = word2vec_model.wv.key_to_index
     word_embeddings = np.zeros((len(text_vocab), vector_size))
     for char, index in text_vocab.items():
