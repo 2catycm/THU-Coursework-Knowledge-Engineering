@@ -2,6 +2,46 @@ import numpy as np
 import torch
 from torch import nn
 
+import torch
+import torch.nn as nn
+
+from kan_convolutional.KANConv import KAN_Convolutional_Layer
+
+
+class Conv1dViaConv2d(nn.Module):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size,
+        stride=1,
+        padding=0,
+        dilation=1,
+        groups=1,
+        bias=True,
+        conv_2d=nn.Conv2d,
+    ):
+        super(Conv1dViaConv2d, self).__init__()
+        self.conv2d = conv_2d(
+            in_channels,
+            out_channels,
+            (1, kernel_size),
+            stride=(1, stride),
+            padding=(0, padding),
+            dilation=(1, dilation),
+            # groups=groups,
+            # bias=bias,
+        )
+
+    def forward(self, x):
+        # 调整输入维度
+        x = x.unsqueeze(2)  # 添加一个高度维度
+        # 执行 Conv2d
+        x = self.conv2d(x)
+        # 移除多余维度
+        x = x.squeeze(2)
+        return x
+
 
 class TextCNN(nn.Module):
     def __init__(
@@ -22,7 +62,13 @@ class TextCNN(nn.Module):
         # Build a stack of 1D CNN layers for each filter size
         self.convs = nn.ModuleList(
             [
-                nn.Conv1d(in_channels=vector_size, out_channels=channels, kernel_size=k)
+                # nn.Conv1d(in_channels=vector_size, out_channels=channels, kernel_size=k)
+                Conv1dViaConv2d(
+                    in_channels=vector_size,
+                    out_channels=channels,
+                    kernel_size=k,
+                    conv_2d=KAN_Convolutional_Layer,
+                )
                 for k in filter_size
             ]
         )

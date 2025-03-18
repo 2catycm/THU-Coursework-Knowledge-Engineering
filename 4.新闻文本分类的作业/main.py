@@ -17,8 +17,11 @@ unk_token = "<UNK>"
 batch_size = 50
 
 
-def evaluate(prediction: list  # 预测标签列表, label: list  # 实际标签列表, print_: bool  # 是否打印结果
-             ) -> float:  # 返回micro f1 分数
+def evaluate(
+    prediction: list,  # 预测标签列表
+    label: list,  # 实际标签列表
+    print_: bool,  # 是否打印结果
+) -> float:  # 返回micro f1 分数
     precision, recall, f1, _ = precision_recall_fscore_support(
         label, prediction, average=None, labels=sorted(list(set(label)))
     )
@@ -32,6 +35,7 @@ def evaluate(prediction: list  # 预测标签列表, label: list  # 实际标签
         print("整体微平均Precision:", float("{:.4f}".format(micro_precision)))
         print("整体微平均Recall:", float("{:.4f}".format(micro_recall)))
         print("整体微平均F1:", float("{:.4f}".format(micro_f1)))
+    assert isinstance(micro_f1, float)
     return micro_f1
 
 

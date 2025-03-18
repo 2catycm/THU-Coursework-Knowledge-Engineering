@@ -86,7 +86,7 @@ class MyDataset(Dataset):
         _text = []
         for sentence in text:
             # 将句子分词并转换为词索引
-            words = sentence.strip().split("")
+            words = list(sentence.strip())
             # 如果词不在词表中，使用UNK的索引
             indices = [
                 self.text_vocab.get(word, self.text_vocab[self.unk_token]) for word in words
