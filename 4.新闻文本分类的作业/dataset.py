@@ -40,67 +40,85 @@ class MyDataset(Dataset):
         # 转换标签为整数
         # convert_label2index 函数不应该暴露到外面，而且只有一行，直接在这里实现
         self._labels = [self.label2index[label] for label in raw_labels]
-        assert len(self._labels) == len(raw_labels), "_labels: {}, raw_labels: {}".format(
-            len(self._labels), len(raw_labels)
+        assert len(self._labels) == len(raw_labels), (
+            "_labels: {}, raw_labels: {}".format(len(self._labels), len(raw_labels))
         )
 
         # 转换文本为词索引
         indexed_text = self.word2index(raw_text)
-        assert len(indexed_text) == len(raw_text), "indexed_text: {}, raw_text: {}".format(
-            len(indexed_text), len(raw_text)
+        assert len(indexed_text) == len(raw_text), (
+            "indexed_text: {}, raw_text: {}".format(len(indexed_text), len(raw_text))
         )
 
         # 填充并转换为张量
         # 合理的接口设计不应该使用 self传递参数，而是应该明确传递。
         padded_text = self.pad(indexed_text)
         self._text_tensor = torch.tensor(padded_text)
-    
+
     def convert_label2index(self) -> None:  # 将字符串标签转换为整数索引
         """已在__init__中实现,此方法保留以兼容旧代码"""
         pass
 
-    def word2index(self,
-                   text: list[str]  # 输入文本列表
-                   ) -> list[list[int]]:  # 返回词索引列表的列表
+    def load(
+        self,
+        file: str,  # 输入文件路径
+    ) -> tuple[list[str], list[str]]:  # 返回(文本列表,标签列表)
+        """
+        read file and load into text (a list of strings) and label (a list of class labels)
+        """
+        text, label = [], []
+        with open(file, "r", encoding="utf-8") as f:
+            for line in f:
+                # 每行格式: 标签\t文本内容
+                label_txt, content = line.strip().split("\t")
+                text.append(content)
+                label.append(label_txt)
+        return text, label
+
+    def word2index(
+        self,
+        text: list[str],  # 输入文本列表
+    ) -> list[list[int]]:  # 返回词索引列表的列表
         """
         convert loaded text to word_index with text_vocab
         self.text_vocab is a dict
         """
         _text = []
-        #############################
-        # TODO
-        ###########################
+        for sentence in text:
+            # 将句子分词并转换为词索引
+            words = sentence.strip().split("")
+            # 如果词不在词表中，使用UNK的索引
+            indices = [
+                self.text_vocab.get(word, self.text_vocab[self.unk_token]) for word in words
+            ]
+            _text.append(indices)
         return _text
 
-    def load(self,
-             file: str  # 输入文件路径
-             ) -> tuple[list[str], list[str]]:  # 返回(文本列表,标签列表)
-        """
-        read file and load into text (a list of strings) and label (a list of class labels)
-        """
-        text, label = [], []
-        #####################
-        # TODO
-        #####################
-        return text, label
-
-    def pad(self, text: list[list[int]]  # 待填充的词索引列表
-            ) -> list[list[int]]:  # 返回填充后的词索引列表
+    def pad(
+        self,
+        text: list[list[int]],  # 待填充的词索引列表
+    ) -> list[list[int]]:  # 返回填充后的词索引列表
         """
         pad word indices to max_length
         """
         pad_text = []
         for _text in text:
-            ################
-            # TODO
-            # hint: use pad_token index to pad
-            pass
-            ################
+            # 如果长度超过max_length则截断
+            if len(_text) > self.max_length:
+                pad_text.append(_text[: self.max_length])
+            else:
+                # 如果长度小于max_length则用pad_token的索引填充
+                pad_text.append(
+                    _text
+                    + [self.text_vocab[self.pad_token]] * (self.max_length - len(_text))
+                )
         return pad_text
 
     def __len__(self) -> int:  # 返回数据集大小
         return len(self._text_tensor)
 
-    def __getitem__(self, item: int  # 数据索引
-                     ) -> tuple[torch.Tensor, int]:  # 返回(文本张量,标签)
+    def __getitem__(
+        self,
+        item: int,  # 数据索引
+    ) -> tuple[torch.Tensor, int]:  # 返回(文本张量,标签)
         return self._text_tensor[item], self._labels[item]
