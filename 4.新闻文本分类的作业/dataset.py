@@ -4,17 +4,31 @@ from torch.utils.data import Dataset, DataLoader
 
 
 class MyDataset(Dataset):
-    def __init__(self, file, text_vocab, max_length=1024, pad_token="<PAD>", unk_token="<UNK>", label2index=None):
+    def __init__(
+        self,
+        file,
+        text_vocab,
+        max_length=1024,
+        pad_token="<PAD>",
+        unk_token="<UNK>",
+        label2index=None,
+    ):
         self.text, self.label = self.load(file)
 
-        assert len(self.text) == len(self.label), print("text: {}, label: {}".format(len(self.text), len(self.label)))
+        assert len(self.text) == len(self.label), print(
+            "text: {}, label: {}".format(len(self.text), len(self.label))
+        )
 
         if label2index is None:
-            self.label2index = dict(zip(sorted(set(self.label)), range(len(set(self.label)))))
+            self.label2index = dict(
+                zip(sorted(set(self.label)), range(len(set(self.label))))
+            )
         else:
             self.label2index = label2index
         self.convert_label2index()
-        assert len(self.text) == len(self.label), print("text: {}, label: {}".format(len(self.text), len(self.label)))
+        assert len(self.text) == len(self.label), print(
+            "text: {}, label: {}".format(len(self.text), len(self.label))
+        )
 
         self.text_vocab = text_vocab
         self.pad_token = pad_token
@@ -22,11 +36,15 @@ class MyDataset(Dataset):
         self.max_length = max_length
         # convert strings to indices with pre-trained word2vec model
         self.text = self.word2index(self.text)
-        assert len(self.text) == len(self.label), print("text: {}, label: {}".format(len(self.text), len(self.label)))
+        assert len(self.text) == len(self.label), print(
+            "text: {}, label: {}".format(len(self.text), len(self.label))
+        )
 
         self.pad()
-        assert len(self.text) == len(self.label), print("text: {}, label: {}".format(len(self.text), len(self.label)))
-    
+        assert len(self.text) == len(self.label), print(
+            "text: {}, label: {}".format(len(self.text), len(self.label))
+        )
+
     def convert_label2index(self):
         self.label = [self.label2index[_label] for _label in self.label]
 
@@ -44,7 +62,7 @@ class MyDataset(Dataset):
         # TODO
         ###########################
         return _text
-    
+
     def load(self, file):
         """
         read file and load into text (a list of strings) and label (a list of class labels)
@@ -59,7 +77,7 @@ class MyDataset(Dataset):
         # TODO
         #####################
         return text, label
-    
+
     def pad(self):
         """
         pad word indices to max_length and convert it to torch.Tensor
