@@ -1,6 +1,6 @@
-import numpy as np
-import torch
-from torch import nn
+import numpy as np  # type: ignore
+import torch  # type: ignore
+from torch import nn  # type: ignore
 
 
 class TextCNN(nn.Module):
@@ -16,14 +16,16 @@ class TextCNN(nn.Module):
         # Returns:
         #   None
         super(TextCNN, self).__init__()
-        ####################
-        # TODO
-        # 1.initialize embedding layer with word_embeddings
-        # 2.build a stack of 1-d CNNs with designated kernel size
-        # e.g. with filter_size=[2,3,4,5], 4 layers of CNN should be built and kernel size is set to 2,3,4,5, respectively.
-        # 3. the last linear layer for label prediction
-        #####################
-        raise NotImplementedError
+        # Initialize embedding layer with pre-trained word_embeddings
+        self.embedding = nn.Embedding.from_pretrained(torch.FloatTensor(word_embeddings), freeze=False, padding_idx=pad_index)
+        # Build a stack of 1D CNN layers for each filter size
+        self.convs = nn.ModuleList([
+            nn.Conv1d(in_channels=vector_size, out_channels=channels, kernel_size=k)
+            for k in filter_size
+        ])
+        # Final linear layer for label prediction; number of classes equals len(label2index)
+        num_class = len(label2index)
+        self.linear = nn.Linear(channels * len(filter_size), num_class)
 
     def forward(self, inputs):
         # Args:
