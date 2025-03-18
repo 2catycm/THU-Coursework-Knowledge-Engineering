@@ -18,31 +18,57 @@ batch_size = 50
 
 
 def evaluate(prediction, label, print_):
-    precision, recall, f1, _ = precision_recall_fscore_support(label, prediction, average=None, labels=sorted(list(set(label))))
-    micro_precision, micro_recall, micro_f1, _ = precision_recall_fscore_support(label, prediction, average="micro")
+    precision, recall, f1, _ = precision_recall_fscore_support(
+        label, prediction, average=None, labels=sorted(list(set(label)))
+    )
+    micro_precision, micro_recall, micro_f1, _ = precision_recall_fscore_support(
+        label, prediction, average="micro"
+    )
     if print_:
-        print("各类别Precision:", [float('{:.4f}'.format(i)) for i in precision])
-        print("各类别Recall:", [float('{:.4f}'.format(i)) for i in recall])
-        print("各类别F1:", [float('{:.4f}'.format(i)) for i in f1])
-        print("整体微平均Precision:", float('{:.4f}'.format(micro_precision)))
-        print("整体微平均Recall:", float('{:.4f}'.format(micro_recall)))
-        print("整体微平均F1:", float('{:.4f}'.format(micro_f1)))
+        print("各类别Precision:", [float("{:.4f}".format(i)) for i in precision])
+        print("各类别Recall:", [float("{:.4f}".format(i)) for i in recall])
+        print("各类别F1:", [float("{:.4f}".format(i)) for i in f1])
+        print("整体微平均Precision:", float("{:.4f}".format(micro_precision)))
+        print("整体微平均Recall:", float("{:.4f}".format(micro_recall)))
+        print("整体微平均F1:", float("{:.4f}".format(micro_f1)))
     return micro_f1
 
 
 print("loading word2vec model")
 # use training data only
-word2vec_model = load_word2vec_model(file="./data/raw/cnews.train.txt", vector_size=vector_size)
+word2vec_model = load_word2vec_model(
+    file="./data/raw/cnews.train.txt", vector_size=vector_size
+)
 text_vocab = word2vec_model.wv.key_to_index
 # add unk_token and pad_token
 unk_index = text_vocab[unk_token] = len(text_vocab)
 pad_index = text_vocab[pad_token] = len(text_vocab)
 
 print("loading dataset")
-train_dataset = MyDataset("./data/raw/cnews.train.txt", text_vocab=text_vocab, pad_token=pad_token, unk_token=unk_token, max_length=max_length)
+train_dataset = MyDataset(
+    "./data/raw/cnews.train.txt",
+    text_vocab=text_vocab,
+    pad_token=pad_token,
+    unk_token=unk_token,
+    max_length=max_length,
+)
 label2index = train_dataset.label2index
-val_dataset = MyDataset("./data/raw/cnews.val.txt", text_vocab=text_vocab, label2index=label2index, pad_token=pad_token, unk_token=unk_token, max_length=max_length)
-test_dataset = MyDataset("./data/raw/cnews.test.txt", text_vocab=text_vocab, label2index=label2index, pad_token=pad_token, unk_token=unk_token, max_length=max_length)
+val_dataset = MyDataset(
+    "./data/raw/cnews.val.txt",
+    text_vocab=text_vocab,
+    label2index=label2index,
+    pad_token=pad_token,
+    unk_token=unk_token,
+    max_length=max_length,
+)
+test_dataset = MyDataset(
+    "./data/raw/cnews.test.txt",
+    text_vocab=text_vocab,
+    label2index=label2index,
+    pad_token=pad_token,
+    unk_token=unk_token,
+    max_length=max_length,
+)
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
@@ -51,7 +77,9 @@ test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 word_embeddings = get_word_embeddings(word2vec_model, vector_size=vector_size)
 
 print("preparing model")
-model = TextCNN(word_embeddings, vector_size, label2index, pad_index, max_length = 1024).to(device)
+model = TextCNN(
+    word_embeddings, vector_size, label2index, pad_index, max_length=1024
+).to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
 loss_function = nn.CrossEntropyLoss()
 total_epoch = 50
