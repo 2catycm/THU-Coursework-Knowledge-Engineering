@@ -1,7 +1,7 @@
 import jieba
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-from typing import *
+from typing import Tuple, List
 
 
 def load_words(filepath: str) -> Tuple[List[str], List[List[str]]]:
@@ -39,7 +39,7 @@ def build_term_doc_matrix(documents: List[List[str]], terms: List[str]):
     return term_doc
 
 
-def cal_tfidf_matrix(term_doc: np.array, documents: List[List[str]], terms: List[str]):
+def cal_tfidf_matrix(term_doc: np.ndarray, documents: List[List[str]], terms: List[str]):
     """
     calculate TF-IDF value for each word
     Args:
@@ -57,11 +57,11 @@ def cal_tfidf_matrix(term_doc: np.array, documents: List[List[str]], terms: List
 
 
 def search_key_similarity(
-    U: np.array,
-    s: np.array,
-    VT: np.array,
+    U: np.ndarray,
+    s: np.ndarray,
+    VT: np.ndarray,
     terms: List[str],
-    term_doc: np.array,
+    term_doc: np.ndarray,
     keys: List[str],
     k: int = 10,
 ):
@@ -86,7 +86,7 @@ def search_key_similarity(
     raise NotImplementedError
 
 
-def classification(sim_matrix: np.array):
+def classification(sim_matrix: np.ndarray):
     """
     view as a document classification problem, return the most similar key index for each document
     Args:
@@ -98,7 +98,7 @@ def classification(sim_matrix: np.array):
     raise NotImplementedError
 
 
-def search_topn_for_each_key(sim_matrix: np.array, n: int = 10):
+def search_topn_for_each_key(sim_matrix: np.ndarray, n: int = 10):
     """
     view as a search problem, return the top-n most similar document index for each keyword
     Args:

@@ -1,0 +1,51 @@
+[docstring]
+style = fastai
+
+[docstring_rules]
+numpy_to_fastai = 
+    (
+        r'^Parameters\n(?:-+\n)?((?:\s{4}\w+ : .+(?:\n\s{8}.+)*\n?)+)',
+        'Parameters:\n\g<1>'
+    ),
+    (
+        r'Returns\n-+\n((?:.+\n)+)',
+        'Returns:\n\g<1>'
+    ),
+    (
+        r'(\s{4})(\w+) : (.*?)(\n\s{8}(?=\w))',
+        '\g<1>\g<2>: \g<3>\g<4>'
+    )
+
+# 示例对比
+[docstring_examples]
+; FastAI风格 (目标格式)
+fastai_example = '''
+def draw_n(n:int, # 要抽取的卡牌数量
+           replace:bool=True # 是否放回抽取?
+          )->list: # 卡牌列表
+    "抽取 `n` 张卡牌"
+'''
+
+; Numpy风格 (被转换格式)
+numpy_example = '''
+def draw_n(n:int, replace:bool=True) -> Cards:
+    """
+    抽取 `n` 张卡牌
+    
+    Parameters
+    ----------
+    n
+        要抽取的卡牌数量
+    replace
+        是否放回抽取?
+        
+    Returns
+    -------
+    cards
+        卡牌列表
+    """
+'''
+
+# 格式选择理由
+[docstring_reason]
+prefer_fastai = "FastAI风格更简洁，参数说明直接写在行内注释中，保持代码紧凑。适用于强调可读性和开发效率的场景，与类型注解配合使用效果更佳。"
