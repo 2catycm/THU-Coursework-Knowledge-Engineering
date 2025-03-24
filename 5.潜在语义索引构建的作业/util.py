@@ -2,7 +2,9 @@ import jieba
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from typing import *
-def load_words(filepath: str) -> List[str], List[List[str]]:
+
+
+def load_words(filepath: str) -> Tuple[List[str], List[List[str]]]:
     """
     read file and load parsed words with jieba, each line is one document
     Args:
@@ -20,6 +22,7 @@ def load_words(filepath: str) -> List[str], List[List[str]]:
     f.close()
     return terms, documents
 
+
 def build_term_doc_matrix(documents: List[List[str]], terms: List[str]):
     """
     build term-document matrix
@@ -34,6 +37,7 @@ def build_term_doc_matrix(documents: List[List[str]], terms: List[str]):
     # TODO
 
     return term_doc
+
 
 def cal_tfidf_matrix(term_doc: np.array, documents: List[List[str]], terms: List[str]):
     """
@@ -51,7 +55,16 @@ def cal_tfidf_matrix(term_doc: np.array, documents: List[List[str]], terms: List
 
     return TF_IDF
 
-def search_key_similarity(U: np.array, s: np.array, VT: np.array, terms: List[str], term_doc: np.array, keys: List[str], k: int=10):
+
+def search_key_similarity(
+    U: np.array,
+    s: np.array,
+    VT: np.array,
+    terms: List[str],
+    term_doc: np.array,
+    keys: List[str],
+    k: int = 10,
+):
     """
     calculate cosine similarity for each pair of key and document
     U, s, VT are SVD results of term-document matrix
@@ -61,7 +74,7 @@ def search_key_similarity(U: np.array, s: np.array, VT: np.array, terms: List[st
     Args:
         U: numpy matrix of size (D,D)
         s: numpy array of size (N,)
-        VT: numpy array of size 
+        VT: numpy array of size
         terms: List[str], a list of all words, len(terms) = D
         term_doc: N * D term-document matrix
         keys: a list of search keys
@@ -71,6 +84,7 @@ def search_key_similarity(U: np.array, s: np.array, VT: np.array, terms: List[st
     """
     # TODO
     raise NotImplementedError
+
 
 def classification(sim_matrix: np.array):
     """
@@ -83,7 +97,8 @@ def classification(sim_matrix: np.array):
     # TODO
     raise NotImplementedError
 
-def search_topn_for_each_key(sim_matrix: np.array, n: int=10):
+
+def search_topn_for_each_key(sim_matrix: np.array, n: int = 10):
     """
     view as a search problem, return the top-n most similar document index for each keyword
     Args:
