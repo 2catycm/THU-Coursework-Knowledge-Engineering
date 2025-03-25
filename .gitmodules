@@ -1,3 +1,6 @@
 [submodule "4.新闻文本分类的作业/Convolutional-KANs"]
 	path = 4.新闻文本分类的作业/Convolutional-KANs
 	url = https://github.com/AntonioTepsich/Convolutional-KANs.git
+[submodule "4.新闻文本分类的作业/torch-conv-kan"]
+	path = 4.新闻文本分类的作业/torch-conv-kan
+	url = https://github.com/IvanDrokin/torch-conv-kan
