@@ -5,55 +5,72 @@ from typing import Tuple, List
 
 
 def load_words(filepath: str) -> Tuple[List[str], List[List[str]]]:
+    """读取文件并使用jieba分词
+    filepath: str # 要加载的文件路径
+    returns: 
+        tuple[List[str], List[List[str]]] # (所有词汇列表, 文档分词列表)
     """
-    read file and load parsed words with jieba, each line is one document
-    Args:
-        filepath: file path to load
-    Returns:
-        terms: List[str], a list of all words
-        documents: List[List[str]], a list of documents, each sublist contains words in the document
-    """
-    f = open(filepath)
-    documents = []
-    terms = []
-
-    # TODO
-
-    f.close()
+    with open(filepath, 'r', encoding='utf-8') as f:
+        documents = []
+        all_terms = set()
+        
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # 使用jieba分词
+            words = jieba.lcut(line)  
+            documents.append(words)
+            all_terms.update(words)
+    
+    # 转换为有序列表
+    terms = sorted(list(all_terms))
     return terms, documents
 
 
 def build_term_doc_matrix(documents: List[List[str]], terms: List[str]):
     """
     build term-document matrix
-    Args:
-        documents: List[List[str]], a list of documents, each sublist contains words in the document, len(documents) = N
-        terms: List[str], a list of all words, len(terms) = D
-    Returns:
-        term_doc: np.array, of size N * D, where term_doc[i, j] means the number of times word_j appears in document_i
+    documents: List[List[str]] # 文档分词列表 (N个文档)
+    terms: List[str] # 所有词汇列表 (D个词汇)
+    returns: np.ndarray # N×D的矩阵，term_doc[i,j]表示词j在文档i中的出现次数
     """
-    term_doc = []
-
-    # TODO
-
-    return term_doc
+    # 创建词汇到索引的映射
+    term_index = {term: idx for idx, term in enumerate(terms)}
+    
+    # 初始化矩阵
+    matrix = np.zeros((len(documents), len(terms)), dtype=int)
+    
+    # 填充矩阵
+    for doc_idx, doc in enumerate(documents):
+        for word in doc:
+            if word in term_index:
+                matrix[doc_idx, term_index[word]] += 1
+                
+    return matrix
 
 
 def cal_tfidf_matrix(term_doc: np.ndarray, documents: List[List[str]], terms: List[str]):
     """
     calculate TF-IDF value for each word
-    Args:
-        term_doc: N * D term-document matrix
-        documents: List[List[str]], a list of documents, each sublist contains words in the document, len(documents) = N
-        terms: List[str], a list of all words, len(terms) = D
-    Returns:
-        TF-IDF: Dict[int, float], where TF-IDF[word_i] is the tf-odf value for word_i
+    term_doc: np.ndarray # 词-文档矩阵
+    returns: dict # TF-IDF值字典 {word: tfidf_value}
     """
-    TF_IDF = {}
-
-    # TODO
-
-    return TF_IDF
+    # TF计算
+    tf = term_doc.astype(float)
+    doc_lens = tf.sum(axis=1)
+    tf = tf / doc_lens[:, np.newaxis]  # 归一化
+    
+    # IDF计算
+    df = (term_doc > 0).sum(axis=0)
+    idf = np.log(len(documents) / (df + 1e-6))  # 避免除以0
+    
+    # TF-IDF计算
+    tfidf = tf * idf
+    
+    # 转换为字典
+    return {term: tfidf[:, idx].mean() for idx, term in enumerate(terms)}
 
 
 def search_key_similarity(
@@ -66,45 +83,59 @@ def search_key_similarity(
     k: int = 10,
 ):
     """
-    calculate cosine similarity for each pair of key and document
-    U, s, VT are SVD results of term-document matrix
-    ```
-    U, s, VT = scipy.linalg.svd(term_doc)
-    ```
-    Args:
-        U: numpy matrix of size (D,D)
-        s: numpy array of size (N,)
-        VT: numpy array of size
-        terms: List[str], a list of all words, len(terms) = D
-        term_doc: N * D term-document matrix
-        keys: a list of search keys
-        k: number of features used in matrix approximation
-    Returns:
-        sim_matrix: np.array of size (N, len(keys))
+    计算LSI相似度矩阵
+    U: np.ndarray # SVD分解的U矩阵
+    s: np.ndarray # 奇异值数组
+    VT: np.ndarray # SVD分解的VT矩阵
+    terms: List[str] # 词汇列表
+    keys: List[str] # 查询关键词列表
+    k: int # 保留的奇异值数量
+    returns: np.ndarray # 相似度矩阵 (N文档, K关键词)
     """
-    # TODO
-    raise NotImplementedError
+    # 构建查询向量
+    term_index = {term: idx for idx, term in enumerate(terms)}
+    query_vectors = []
+    
+    for key in keys:
+        words = jieba.lcut(key)
+        vec = np.zeros(len(terms))
+        for word in words:
+            if word in term_index:
+                vec[term_index[word]] += 1
+        query_vectors.append(vec)
+    
+    query_matrix = np.array(query_vectors).T  # D x K
+    
+    # 降维处理
+    sigma_k = np.diag(s[:k])
+    U_k = U[:, :k]
+    VT_k = VT[:k, :]
+    
+    # 文档在隐空间中的表示
+    doc_rep = U_k @ sigma_k  # N x k
+    
+    # 查询在隐空间中的表示
+    query_rep = np.linalg.pinv(sigma_k) @ VT_k @ query_matrix  # k x K
+    
+    # 计算余弦相似度
+    return cosine_similarity(doc_rep, query_rep.T)
 
 
 def classification(sim_matrix: np.ndarray):
     """
-    view as a document classification problem, return the most similar key index for each document
-    Args:
-        sim_matrix: np.array of size (N, len(keys))
-    Returns:
-        predict: np.array of size (N,)
+    文档分类：为每个文档选择最相似的关键词
+    sim_matrix: np.ndarray # 相似度矩阵 (N文档, K关键词)
+    returns: np.ndarray # 预测的类别索引 (N文档,)
     """
-    # TODO
-    raise NotImplementedError
+    return np.argmax(sim_matrix, axis=1)
 
 
 def search_topn_for_each_key(sim_matrix: np.ndarray, n: int = 10):
     """
-    view as a search problem, return the top-n most similar document index for each keyword
-    Args:
-        sim_matrix: np.array of size (N, len(keys))
-    Returns:
-        searched: np.array of size (len(keys), n)
+    为每个关键词搜索Top-N文档
+    sim_matrix: np.ndarray # 相似度矩阵 (N文档, K关键词)
+    n: int # 保留的Top-N结果数量
+    returns: np.ndarray # 搜索结果矩阵 (K关键词, n文档索引)
     """
-    # TODO
-    raise NotImplementedError
+    # 按列排序（每个关键词对应一列）
+    return np.argsort(-sim_matrix, axis=0)[:n, :].T
