@@ -1,0 +1,4 @@
+jieba
+numpy
+scipy
+scikit-learn
