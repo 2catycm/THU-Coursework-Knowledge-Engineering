@@ -13,8 +13,15 @@ from util import (
     search_topn_for_each_key,
 )
 
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("--n", type=int, default=5)
+args = parser.parse_args()
+
+
 filePath = "./data"
 fileList = sorted(os.listdir(filePath))
+
 
 
 # 评测函数
@@ -77,7 +84,7 @@ if __name__ == "__main__":
     print("s:", s.shape)
     print("VT:", VT.shape)
     # 改变LSI矩阵的K值
-    n = 5  # 查询top-n
+    n = args.n  # 查询top-n
     for k in [10, 20, 30, 40, 50, 100]:
         sim_matrix = search_key_similarity(U, s, VT, terms, term_doc, keys, k=k)
         searched_topn = search_topn_for_each_key(sim_matrix, n=n).astype(int)
