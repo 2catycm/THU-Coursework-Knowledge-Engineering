@@ -24,6 +24,7 @@ def evaluate(prediction, label, flag):
         print("Accuracy:", float("{:.4f}".format(accuracy)))
     return accuracy
 
+scale = 1
 
 print("loading data")
 train_loader = DataLoader(
@@ -33,13 +34,13 @@ train_loader = DataLoader(
         train=True,
         max_example_num=max_train_example,
     ),
-    batch_size=64,
+    batch_size=64*scale,
     shuffle=True,
     collate_fn=functools.partial(collate_fn, device=device),
 )
 val_loader = DataLoader(
     MyDataset("./data/dev.tsv", max_length=max_length, train=True),
-    batch_size=64,
+    batch_size=64*scale,
     shuffle=False,
     collate_fn=functools.partial(collate_fn, device=device),
 )
@@ -48,19 +49,22 @@ val_loader = DataLoader(
 model = TextCNN(
     options_file, weight_file, vector_size=vector_size, max_length=max_length
 ).to(device)
-optimizer = optim.Adam(model.parameters(), lr=1e-5, weight_decay=1e-4)
+optimizer = optim.Adam(model.parameters(), lr=1e-5*scale, weight_decay=1e-4)
 loss_function = nn.CrossEntropyLoss()
 total_epoch = 10
 max_acc = 0.0
 print("start training")
 tic = time.time()
-for epoch in tqdm(range(total_epoch)):
+out_bar = tqdm(range(total_epoch))
+for epoch in out_bar: 
     model.train()
-    for text, label in tqdm(train_loader):
+    bar = tqdm(train_loader)
+    for text, label in bar:
         prediction = model(text)
         loss = loss_function(prediction, label)
         loss.backward()
         optimizer.step()
+        bar.set_description(f"Loss: {loss.item():.4f}")
     model.eval()
     val_prediction = []
     with torch.no_grad():
@@ -70,10 +74,11 @@ for epoch in tqdm(range(total_epoch)):
             val_prediction.extend(prediction.detach().cpu().tolist())
             val_label.extend(label.cpu().tolist())
     acc = evaluate(val_prediction, val_label, False)
+    out_bar.set_description(f"Epoch: {epoch} Max Accuracy: {max_acc:.4f}")
     if acc > max_acc:
         max_acc = acc
-        torch.save(model.state_dict(), "best_model.pkl")
-model.load_state_dict(torch.load("best_model.pkl"))
+        torch.save(model.state_dict(), "data/best_model.pkl")
+model.load_state_dict(torch.load("data/best_model.pkl"))
 test_prediction = []
 model.eval()
 with torch.no_grad():

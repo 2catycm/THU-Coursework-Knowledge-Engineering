@@ -4,3 +4,6 @@
 [submodule "4.新闻文本分类的作业/torch-conv-kan"]
 	path = 4.新闻文本分类的作业/torch-conv-kan
 	url = https://github.com/IvanDrokin/torch-conv-kan
+[submodule "6.英文评论情感分类的作业/allennlp"]
+	path = 6.英文评论情感分类的作业/allennlp
+	url = https://github.com/allenai/allennlp.git
