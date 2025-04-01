@@ -17,18 +17,37 @@ weight_file = "./data/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
 max_train_example = 10000
 print("max_train_example:", max_train_example)
 
+
 def evaluate(prediction, label, flag):
     accuracy = accuracy_score(label, prediction)
     if flag:
-        print("Accuracy:", float('{:.4f}'.format(accuracy)))
+        print("Accuracy:", float("{:.4f}".format(accuracy)))
     return accuracy
 
+
 print("loading data")
-train_loader = DataLoader(MyDataset("./data/train.tsv", max_length=max_length, train=True, max_example_num=max_train_example), batch_size=64, shuffle=True, collate_fn=functools.partial(collate_fn, device=device))
-val_loader = DataLoader(MyDataset("./data/dev.tsv", max_length=max_length, train=True), batch_size=64, shuffle=False, collate_fn=functools.partial(collate_fn, device=device))
+train_loader = DataLoader(
+    MyDataset(
+        "./data/train.tsv",
+        max_length=max_length,
+        train=True,
+        max_example_num=max_train_example,
+    ),
+    batch_size=64,
+    shuffle=True,
+    collate_fn=functools.partial(collate_fn, device=device),
+)
+val_loader = DataLoader(
+    MyDataset("./data/dev.tsv", max_length=max_length, train=True),
+    batch_size=64,
+    shuffle=False,
+    collate_fn=functools.partial(collate_fn, device=device),
+)
 
 
-model = TextCNN(options_file, weight_file, vector_size=vector_size, max_length=max_length).to(device)
+model = TextCNN(
+    options_file, weight_file, vector_size=vector_size, max_length=max_length
+).to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-5, weight_decay=1e-4)
 loss_function = nn.CrossEntropyLoss()
 total_epoch = 10
@@ -65,4 +84,4 @@ with torch.no_grad():
         val_label.extend(label.cpu().tolist())
 evaluate(test_prediction, val_label, True)
 toc = time.time()
-print("Total Time:", toc-tic, "s")
+print("Total Time:", toc - tic, "s")

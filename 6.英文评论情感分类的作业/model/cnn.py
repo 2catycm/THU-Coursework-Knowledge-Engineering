@@ -5,7 +5,15 @@ from allennlp.modules.elmo import Elmo
 
 
 class TextCNN(nn.Module):
-    def __init__(self, options_file, weight_file, vector_size, filter_size=[2,3,4,5], channels=64, max_length=1024):
+    def __init__(
+        self,
+        options_file,
+        weight_file,
+        vector_size,
+        filter_size=[2, 3, 4, 5],
+        channels=64,
+        max_length=1024,
+    ):
         # Args:
         #   options_file: elmo file
         #   weight_file: elmo weight file
