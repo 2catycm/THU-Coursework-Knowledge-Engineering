@@ -18,10 +18,10 @@ class TextLSTM(nn.Module):
         super(TextLSTM, self).__init__()
         self.embedding = Elmo(options_file, weight_file, 1, dropout=0)
         # 使用LSTM进行特征抽取，使用channels作为隐藏层维度
-        self.lstm = nn.LSTM(input_size=vector_size, hidden_size=channels, batch_first=True)
+        self.lstm = nn.LSTM(input_size=vector_size, hidden_size=channels, batch_first=True, bidirectional=True)
         self.dropout = nn.Dropout(dropout)
         # 最后全连接分类层
-        self.linear = nn.Linear(channels, 2)  # 二分类问题
+        self.linear = nn.Linear(2 * channels, 2)  # 二分类问题，双向LSTM输出
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         """
@@ -31,8 +31,10 @@ class TextLSTM(nn.Module):
         x = self.embedding(inputs)["elmo_representations"][0]
         # 通过LSTM，输出h_n形状为 (num_layers, N, hidden_size)
         _, (h_n, _) = self.lstm(x)
-        # 提取最后一层隐藏状态，形状为 (N, hidden_size)
-        h = h_n[-1]
+        # 双向LSTM，h_n形状为 (num_directions, N, hidden_size)，拼接正反向的最后隐藏状态
+        h = torch.cat([h_n[0], h_n[1]], dim=1)
+        # 添加ReLU激活，增强非线性能力
+        h = torch.relu(h)
         # 应用Dropout
         h = self.dropout(h)
         # 分类

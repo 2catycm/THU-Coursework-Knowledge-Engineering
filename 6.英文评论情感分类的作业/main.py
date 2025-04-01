@@ -10,7 +10,7 @@ from tqdm import tqdm
 import time
 import argparse
 parser = argparse.ArgumentParser(description="英文评论情感分类作业")
-parser.add_argument("--model", type=str, default="cnn", choices=["cnn", "lstm"], help="选择模型类型：cnn或lstm")
+parser.add_argument("--model", type=str, default="cnn", choices=["cnn", "lstm", "rwkv"], help="选择模型类型：cnn, lstm 或 rwkv")
 parser.add_argument("--batch_size", type=int, default=64, help="训练时的批处理大小")
 parser.add_argument("--dropout", type=float, default=0.5, help="模型的dropout概率")
 args = parser.parse_args()
@@ -55,9 +55,14 @@ val_loader = DataLoader(
 if args.model == "cnn":
     from model.cnn import TextCNN
     model = TextCNN(options_file, weight_file, vector_size=vector_size, max_length=max_length, dropout=args.dropout)
-else:
+elif args.model == "lstm":
     from model.lstm import TextLSTM
     model = TextLSTM(options_file, weight_file, vector_size=vector_size, max_length=max_length, dropout=args.dropout)
+elif args.model == "rwkv":
+    from model.rwkv import TextRWKV
+    model = TextRWKV(options_file, weight_file, vector_size=vector_size, max_length=max_length, dropout=args.dropout)
+else:
+    raise ValueError("Invalid model type")
 model = model.to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-5*scale, weight_decay=1e-4)
 loss_function = nn.CrossEntropyLoss()
