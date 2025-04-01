@@ -64,7 +64,6 @@ class MyDataset(Dataset):
         pad text_ids to max_length
         """
         N, L, D = text_ids.shape
-        print("text_ids shape: ", text_ids.shape)
         if L >= self.max_length:
             # 如果文本长度大于等于最大长度，截断
             return text_ids[:, :self.max_length, :]

@@ -3,11 +3,17 @@ import torch
 from sklearn.metrics import accuracy_score
 from torch import nn, optim
 from torch.utils.data import DataLoader
-from model.cnn import TextCNN
+# from model.cnn import TextCNN  # 已移除，采用动态选择模型
 from data_util import MyDataset, collate_fn
 import functools
 from tqdm import tqdm
 import time
+import argparse
+parser = argparse.ArgumentParser(description="英文评论情感分类作业")
+parser.add_argument("--model", type=str, default="cnn", choices=["cnn", "lstm"], help="选择模型类型：cnn或lstm")
+parser.add_argument("--batch_size", type=int, default=64, help="训练时的批处理大小")
+parser.add_argument("--dropout", type=float, default=0.5, help="模型的dropout概率")
+args = parser.parse_args()
 
 max_length = 64
 vector_size = 1024
@@ -34,21 +40,25 @@ train_loader = DataLoader(
         train=True,
         max_example_num=max_train_example,
     ),
-    batch_size=64*scale,
+    batch_size=args.batch_size,
     shuffle=True,
     collate_fn=functools.partial(collate_fn, device=device),
 )
 val_loader = DataLoader(
     MyDataset("./data/dev.tsv", max_length=max_length, train=True),
-    batch_size=64*scale,
+    batch_size=args.batch_size,
     shuffle=False,
     collate_fn=functools.partial(collate_fn, device=device),
 )
 
 
-model = TextCNN(
-    options_file, weight_file, vector_size=vector_size, max_length=max_length
-).to(device)
+if args.model == "cnn":
+    from model.cnn import TextCNN
+    model = TextCNN(options_file, weight_file, vector_size=vector_size, max_length=max_length, dropout=args.dropout)
+else:
+    from model.lstm import TextLSTM
+    model = TextLSTM(options_file, weight_file, vector_size=vector_size, max_length=max_length, dropout=args.dropout)
+model = model.to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-5*scale, weight_decay=1e-4)
 loss_function = nn.CrossEntropyLoss()
 total_epoch = 10
