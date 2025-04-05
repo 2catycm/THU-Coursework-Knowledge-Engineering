@@ -17,5 +17,5 @@ if not os.path.exists(train_cache):
         if int(count) != len(targets):
             continue
         output.extend([f"{cut_source}\t{cut(target)}\n" for target in targets])
-    output = list([x for x in output if len(x.strip().split("\t")) == 2])
+    output = list(filter(lambda x: len(x.strip().split("\t")) == 2, output))
     open(train_cache, "w", encoding="utf-8").writelines(output)

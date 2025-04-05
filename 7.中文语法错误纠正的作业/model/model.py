@@ -5,6 +5,7 @@ from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 import torch
 from typing import *
 
+
 class GECModel(nn.Module):
     """
     使用GRU构建Encoder-Decoder
@@ -16,11 +17,14 @@ class GECModel(nn.Module):
         vocab_size: 词表大小
 
     """
-    def __init__(self, elmo_model, vocab_size:int):
+
+    def __init__(self, elmo_model, vocab_size: int):
         super().__init__()
         # TODO
 
-    def encode(self, source_inputs: List[List[str]], source_mask: torch.Tensor, **kwargs):
+    def encode(
+        self, source_inputs: List[List[str]], source_mask: torch.Tensor, **kwargs
+    ):
         """
         Encode input source text
         Args:
@@ -29,11 +33,20 @@ class GECModel(nn.Module):
         Returns:
             encoder_outputs: torch.Tensor of size (batch_size, sequence_length, hidden_states)
         """
-        
+
         # TODO
         raise NotImplementedError
 
-    def decode(self, encoder_outputs: torch.Tensor, source_mask: torch.Tensor, target_input_ids: torch.Tensor, target_inputs: List[List[str]], target_mask: torch.Tensor=None, hidden_states: torch.Tensor=None, **kwargs):
+    def decode(
+        self,
+        encoder_outputs: torch.Tensor,
+        source_mask: torch.Tensor,
+        target_input_ids: torch.Tensor,
+        target_inputs: List[List[str]],
+        target_mask: torch.Tensor = None,
+        hidden_states: torch.Tensor = None,
+        **kwargs,
+    ):
         """
         decode for output sequence
         Args
@@ -45,7 +58,7 @@ class GECModel(nn.Module):
         Returns:
             decoder_output: a torch.Tensor of (batch_size, sequence_length, vocab_size)
         """
-        
+
         # TODO
         raise NotImplementedError
 

@@ -1,6 +1,7 @@
 from typing import *
 import subprocess
 
+
 def maxmatch_metric(prediction_file: str, label_file: str) -> Any:
     """
     calculate maxmatch metrics
@@ -9,7 +10,7 @@ def maxmatch_metric(prediction_file: str, label_file: str) -> Any:
         label_file: a file containig groundtruth output
     Returns:
         Any
-    
+
     File content example
     # prediction file
     ```
@@ -28,5 +29,7 @@ def maxmatch_metric(prediction_file: str, label_file: str) -> Any:
     A 49 50|||S|||十|||REQUIRED|||-NONE-|||0
     ```
     """
-    subprocess.check_call(["python", "metrics/m2scorer/m2scorer.py", prediction_file, label_file])
+    subprocess.check_call(
+        ["python", "metrics/m2scorer/m2scorer.py", prediction_file, label_file]
+    )
     # raise NotImplementedError

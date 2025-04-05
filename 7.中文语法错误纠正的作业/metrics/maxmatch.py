@@ -1,6 +1,7 @@
 from typing import *
 import subprocess
 
+
 def maxmatch_metric(prediction_file: str, label_file: str) -> Any:
     """
     calculate maxmatch metrics
@@ -9,7 +10,7 @@ def maxmatch_metric(prediction_file: str, label_file: str) -> Any:
         label_file: a file containig groundtruth output
     Returns:
         Any
-    
+
     File content example
     # prediction file
     ```

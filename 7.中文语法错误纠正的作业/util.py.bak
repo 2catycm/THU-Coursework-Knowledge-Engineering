@@ -78,7 +78,7 @@ class GECDataset(Dataset):
             f"{prefix}_mask": [],
             "labels": [],
         }
-        max_length = min(max(list(map(len, source))), self.max_length)
+        max_length = min(max(map(len, source)), self.max_length)
         for i in range(len(source)):
             source_item = (
                 source[i][:max_length]
@@ -89,7 +89,7 @@ class GECDataset(Dataset):
                 max_length - len(source_item)
             )
             padded_source_item_ids = list(
-                [self.vocab.get(x, self.oov_index) for x in padded_source_item]
+                map(lambda x: self.vocab.get(x, self.oov_index), padded_source_item)
             )
 
             if prefix == "target":
@@ -111,7 +111,7 @@ class GECDataset(Dataset):
             key: torch.tensor(value)
             if key != "source_inputs" and key != "target_inputs"
             else value
-            for key, value in list(output.items())
+            for key, value in output.items()
             if value
         }
         return output
