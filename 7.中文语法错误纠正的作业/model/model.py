@@ -18,9 +18,35 @@ class GECModel(nn.Module):
 
     """
 
-    def __init__(self, elmo_model, vocab_size: int):
+    def __init__(self, elmo_model, vocab_size: int, hidden_size: int = 512, num_layers: int = 1, dropout: float = 0.5):
         super().__init__()
-        # TODO
+        self.elmo = elmo_model
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.dropout = dropout
+        self.encoder_gru = nn.GRU(
+            input_size=elmo_model.get_output_dim(),
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=dropout if num_layers > 1 else 0
+        )
+        self.attention = nn.MultiheadAttention(
+            embed_dim=hidden_size,
+            num_heads=8,
+            batch_first=True
+        )
+        self.decoder_gru = nn.GRU(
+            input_size=elmo_model.get_output_dim() + hidden_size,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=dropout if num_layers > 1 else 0
+        )
+        self.linear = nn.Linear(hidden_size, vocab_size)
+# Removed
+        self.target_embedding = nn.Embedding(vocab_size, elmo_model.get_output_dim())
+        self.dropout_layer = nn.Dropout(dropout)
 
     def encode(
         self, source_inputs: List[List[str]], source_mask: torch.Tensor, **kwargs
@@ -34,8 +60,12 @@ class GECModel(nn.Module):
             encoder_outputs: torch.Tensor of size (batch_size, sequence_length, hidden_states)
         """
 
-        # TODO
-        raise NotImplementedError
+        # Encode the source inputs using ELMo
+        with torch.no_grad():
+            elmo_outputs = self.elmo(source_inputs)
+        # Apply the encoder GRU
+        encoder_outputs, _ = self.encoder_gru(elmo_outputs)
+        return encoder_outputs
 
     def decode(
         self,
@@ -43,8 +73,8 @@ class GECModel(nn.Module):
         source_mask: torch.Tensor,
         target_input_ids: torch.Tensor,
         target_inputs: List[List[str]],
-        target_mask: torch.Tensor = None,
-        hidden_states: torch.Tensor = None,
+        target_mask: Optional[torch.Tensor] = None,
+        hidden_states: Optional[torch.Tensor] = None,
         **kwargs,
     ):
         """
@@ -59,8 +89,15 @@ class GECModel(nn.Module):
             decoder_output: a torch.Tensor of (batch_size, sequence_length, vocab_size)
         """
 
-        # TODO
-        raise NotImplementedError
+        # Use target embedding and decoder GRU with attention
+        embedded = self.target_embedding(target_input_ids)
+        embedded = self.dropout_layer(embedded)
+        # Apply attention
+        context, _ = self.attention(embedded, encoder_outputs, encoder_outputs)
+        combined = torch.cat((embedded, context), dim=2)
+        decoder_outputs, _ = self.decoder_gru(combined)
+        outputs = self.linear(decoder_outputs)
+        return outputs
 
     def forward(self, **kwargs):
         encoder_outputs = self.encode(**kwargs)
