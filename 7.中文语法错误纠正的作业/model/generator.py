@@ -2,8 +2,11 @@ import re
 import torch
 import einops
 
+from typing import List, Tuple, Dict
+from elmoformanylangs import Embedder
+from .model import GECModel
 
-# 定义BeamSearch生成结果
+
 class BeamHypotheses:
     """
     A class to store current top `num_beams` best beam search generation output
@@ -11,9 +14,10 @@ class BeamHypotheses:
 
     def __init__(self, num_beams: int = 5, length_penalty: float = 0.7):
         self.length_penalty = length_penalty
-        self.num_beams = num_beams
-        self.beams = []  # a list of (sequence, score) pair
-        self.worst_score = 1e9  # storing the current worst score, which is always np.min([i[1] for i in self.beams]) when self.beams is not empty
+        self.num_beams = num_beams  # a list of (sequence, score) pair
+        self.beams: List[Tuple] = []
+        self.worst_score = 1e9  #  # storing the current worst score,
+        # which is always np.min([i[1] for i in self.beams]) when self.beams is not empty
 
     def __len__(self):
         return len(self.beams)
@@ -21,48 +25,59 @@ class BeamHypotheses:
     def add(self, hyp: torch.Tensor, sum_logprobs: float):
         """
         Add a generated sequence and its score
-        The score, by default is \sum_{i=1}^n log(p(x_i|<bos>, x_1, ..., x_{i-1})), where {<bos>, x_1, ..., x_n} is the generated sequence and p(x_i|<bos>, x_1, ..., x_{i-1}) is given by decoder
-
-        This method first calculate the penalized score (with length_penalty hyper-parameter)
-        then updates the current self.beams and self.worst_score
-
-        Returns:
-            None
         """
-        # TODO
-        raise NotImplementedError
+        score = sum_logprobs / len(hyp) ** self.length_penalty  # apply length penalty
+        if len(self.beams) < self.num_beams:
+            self.beams.append((hyp, score))
+            if score < self.worst_score:
+                self.worst_score = score
+        else:
+            if score > self.worst_score:
+                self.beams.sort(key=lambda x: x[1])  # Sort by score
+                self.beams = self.beams[:-1]  # Remove the worst
+                self.beams.append(
+                    (hyp, score)
+                )  # 其实应该搞一个堆数据结构，但是没关系，排序肯定对。
+                self.worst_score = min([x[1] for x in self.beams])
 
     def is_done(self, best_sum_logprobs: float, cur_len: int) -> bool:
         """
-        check whether generation should stop
-
-        Args:
-            best_sum_logprobs: the best score at current timestep
-            cur_len: the sequence length with best score at current timestep
-        Returns:
-            is_done: bool
+        Check whether generation should stop
         """
-        # TODO
-        raise NotImplementedError
+        if len(self.beams) < self.num_beams:
+            return False
+        cur_score = best_sum_logprobs / (cur_len**self.length_penalty)
+        return self.worst_score >= cur_score
 
 
 class BeamSearchGenerator:
-    def __init__(self, model, reverse_vocab_dict, device):
-        self.oov_index = 0
-        self.bos_index = 1
-        self.eos_index = 2
-        self.pad_index = 3
+    def __init__(
+        self,
+        model: GECModel,  # model.py 定义的模型
+        reverse_vocab_dict: Dict[int, str],  # elmo 词典
+        device: str,
+    ):
+        self.oov_index = 0  # out of vocabulary
+        self.bos_index = 1  # begin of sentence
+        self.eos_index = 2  # end of sentence
+        self.pad_index = 3  # padding
         self.model = model
         self.max_length = 200
         self.num_beams = 8
         self.length_penalty = 0.7
         self.vocab = reverse_vocab_dict
-        self.vocab_size = model.vocab_size
+        self.vocab_size = len(reverse_vocab_dict)  # 也就是 L 的大小。
         self.device = device
 
-    def generate(self, **kwargs):
-        source_mask = kwargs["source_mask"]
-        encoder_outputs = self.model.encode(**kwargs)
+    def generate(
+        self,
+        source_inputs: List[List[str]],  # a list of input text
+        source_mask: torch.Tensor,  # shape (batch_size, sequence_length) representing the input mask
+        **kwargs,
+    ):
+        encoder_outputs = self.model.encode(
+            source_inputs=source_inputs, source_mask=source_mask, **kwargs
+        )
         generated_sequence = self.beam_search(encoder_outputs, source_mask)
         generated_string = [
             re.sub(
@@ -73,76 +88,118 @@ class BeamSearchGenerator:
             for i, item in enumerate(generated_sequence.detach().cpu())
         ]
         generated_string = [
-            re.sub("\s+", " ", item.strip()) for item in generated_string
+            re.sub(r"\s+", " ", item.strip()) for item in generated_string
         ]
         return generated_string
 
-    def beam_search(self, encoder_output, source_mask) -> torch.Tensor:
+    def beam_search(
+        self,
+        encoder_output: torch.Tensor,  # shape (batch_size, sequence_length, hidden_size) representing the encoder output
+        source_mask: torch.Tensor,  # shape (batch_size, sequence_length) representing the input mask
+    ) -> torch.Tensor:  # int ids, shape (batch_size, max_length)
         """
         perform beam search to get the generated sequence with the highest score
-        Arguments:
-            - encoder_output: a torch tensor of shape (batch_size, sequence_length, hidden_size) representing the encoder output
-            - mask: a torch tensor of shape (batch_size, sequence_length) representing the input mask
-        Returns:
-            output_sequence:
         """
-        # get necessary info
-        batch_size, max_length, num_beams, vocab_size = (
-            encoder_output.shape[0],
-            self.max_length,
-            self.num_beams,
-            self.vocab_size,
-        )
+        # 0. get necessary info
+        batch_size, seq_length, hidden_size = encoder_output.shape
+        num_beams = self.num_beams
+        vocab_size = self.vocab_size
+        max_length = self.max_length
 
-        # repeat encoder_output and source_mask with `num_beams`
-        # b, s, h -> b*n, s, h
+        # 1. prepare the encoder output and source mask
         encoder_output = einops.repeat(
             encoder_output, "b s h -> (b n) s h", n=num_beams
         )
         source_mask = einops.repeat(source_mask, "b s -> (b n) s", n=num_beams)
 
-        # initialize variable for storing the top-`num_beams` generated sequence and corresponding scores at current timestep
-        sequence = torch.zeros(
-            batch_size * num_beams, 1, dtype=torch.long, device=self.device
+        # 2. 初始化为(batch*beam, 1)格式, storing the top-`num_beams` generated sequence
+        sequence = torch.full(
+            (batch_size * num_beams, 1),
+            self.bos_index,  # 填满这个 begin of sentence
+            dtype=torch.long,
+            device=self.device,
         )
-        sequence[:, 0] = self.bos_index  # bos_index at beginning
+        # 3. beam scores, corresponding scores at current timestep
         beam_scores = torch.zeros(batch_size, num_beams, device=self.device)
-        beam_scores[:, 1:] = -1e9  # set to a small value
+        beam_scores[:, 1:] = -1e9
         beam_scores = beam_scores.view(-1)
 
-        # a flag tensor indicating whether generation is done for current sentence
+        # 4. a flag tensor indicating whether generation is done for current sentence
         finished = torch.zeros(batch_size, dtype=torch.bool, device=self.device)
-
-        # initialize beams for each sequence
         hypotheses = [
             BeamHypotheses(num_beams, self.length_penalty) for _ in range(batch_size)
         ]
-        hidden_states = None
+        hidden_states = None  # 有点奇怪
 
-        # generate token by token
-        #############################
-        # TODO
-        #################################
+        # Beam search loop
+        for cur_len in range(1, max_length):
+            # Get decoder output
+            decoder_output, new_hidden_states = self.model.decode(
+                encoder_outputs=encoder_output,
+                source_mask=source_mask,
+                target_input_ids=sequence,
+                target_mask=torch.ones_like(sequence).to(self.device),
+                hidden_states=hidden_states
+            )
 
-        # update each hypothesis
+            # Get logits for the next token
+            logits = decoder_output[:, -1, :]  # (batch_size * num_beams, vocab_size)
+            log_probs = torch.log_softmax(logits, dim=-1)
+
+            # Add log_probs to beam_scores
+            next_scores = beam_scores.unsqueeze(-1) + log_probs  # (batch_size * num_beams, vocab_size)
+            next_scores = next_scores.view(batch_size, num_beams * vocab_size)
+
+            # Get top k scores and indices
+            next_scores, next_indices = torch.topk(next_scores, num_beams, dim=1)
+            next_beam_indices = next_indices // vocab_size
+            next_token_indices = next_indices % vocab_size
+
+            # Update beam_scores
+            beam_scores = next_scores.view(-1)
+
+            # Update sequence
+            sequence = sequence[next_beam_indices.view(-1)]
+            sequence = torch.cat(
+                [sequence, next_token_indices.view(-1, 1)], dim=1
+            )
+
+            # Update hidden states
+            if new_hidden_states is not None:
+                hidden_states = new_hidden_states[:, next_beam_indices.view(-1), :]
+                # hidden_states = new_hidden_states
+
+            # Check for EOS tokens
+            eos_in_beam = (next_token_indices == self.eos_index).any(dim=1)
+            for i in range(batch_size):
+                if eos_in_beam[i].any():
+                    beam_idx = i * num_beams
+                    for j in range(num_beams):
+                        if beam_idx + j < next_token_indices.size(0) and next_token_indices[beam_idx + j] == self.eos_index:
+                            hypotheses[i].add(
+                                sequence[beam_idx + j].clone(),
+                                beam_scores[beam_idx + j].item()
+                            )
+                    if len(hypotheses[i]) >= num_beams:
+                        finished[i] = True
+
+            if finished.all():
+                break
+
+        # Get the best sequence from hypotheses
+        best_sequences = []
         for i in range(batch_size):
-            if finished[i]:
-                continue
-            for j in range(num_beams):
-                batch_beam_id = i * num_beams + j
-                hypotheses[i].add(
-                    sequence[batch_beam_id], beam_scores[batch_beam_id].item()
-                )
+            if len(hypotheses[i]) > 0:
+                best_sequences.append(hypotheses[i].beams[-1][0])
+            else:
+                best_sequences.append(sequence[i * num_beams])
 
-        length = sequence.new(batch_size)
-        best_sequence = []
-        for i, hypo in enumerate(hypotheses):
-            sorted_hypos = sorted(hypo.beams, key=lambda x: x[0])
-            best_hypo = sorted_hypos[-1][1]
-            length[i] = len(best_hypo)
-            best_sequence.append(best_hypo)
+        # Pad sequences to max_length
+        output_sequence = torch.full(
+            (batch_size, max_length), self.eos_index, dtype=torch.long, device=self.device
+        )
+        for i, seq in enumerate(best_sequences):
+            seq_len = min(len(seq), max_length)
+            output_sequence[i, :seq_len] = seq[:seq_len]
 
-        output_sequence = sequence.new(batch_size, max_length).fill_(self.eos_index)
-        for i, one_sequence in enumerate(best_sequence):
-            output_sequence[i, : length[i]] = one_sequence
         return output_sequence

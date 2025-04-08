@@ -68,6 +68,37 @@ total_epoch = 10
 gradient_accumulation = 1
 
 for epoch in range(total_epoch):
+    # 先测一次
+    model.eval()
+    output = []
+    start = time.time()
+    torch.set_grad_enabled(False)
+    for batch_idx, batch in enumerate(test_dataloader):
+        batch = {
+            key: value.to(device) if isinstance(value, torch.Tensor) else value
+            for key, value in batch.items()
+        }
+        with autocast('cuda'):
+            generated_string = generator.generate(**batch)
+        output.extend(generated_string)
+        elasped_time = time.time() - start
+        print(
+            f"\rEpoch {epoch} Step {batch_idx + 1}/{len(test_dataloader)} Test | {int(elasped_time / 60)}min {round(elasped_time) % 60}s",
+            end="",
+        )
+    print()
+    prediction_file = f"test_{epoch}.txt"
+    open(prediction_file, "w").write("\n".join(output))
+
+    # metric calculation
+    metrics = maxmatch_metric(prediction_file, "./data/raw/gold.01")
+    print(metrics)
+
+
+
+
+
+
     train_loss = 0
     start = time.time()
     correct, total = 0, 0
@@ -81,7 +112,7 @@ for epoch in range(total_epoch):
         }
         labels = batch.pop("labels")
         with autocast('cuda'):
-            output, hidden_states = model(**batch)
+            output = model(**batch)
             flatten = lambda tensor: einops.rearrange(
                 tensor, "b s h -> (b s) h" if len(tensor.shape) == 3 else "b s -> (b s)"
             )
@@ -110,28 +141,4 @@ for epoch in range(total_epoch):
     print()
 
     torch.save(model.state_dict(), f"{epoch}.ckpt")
-
-model.eval()
-output = []
-start = time.time()
-torch.set_grad_enabled(False)
-for batch_idx, batch in enumerate(test_dataloader):
-    batch = {
-        key: value.to(device) if isinstance(value, torch.Tensor) else value
-        for key, value in batch.items()
-    }
-    with autocast('cuda'):
-        generated_string = generator.generate(**batch)
-    output.extend(generated_string)
-    elasped_time = time.time() - start
-    print(
-        f"\rEpoch {epoch} Step {batch_idx + 1}/{len(test_dataloader)} Test | {int(elasped_time / 60)}min {round(elasped_time) % 60}s",
-        end="",
-    )
-print()
-prediction_file = f"test_{epoch}.txt"
-open(prediction_file, "w").write("\n".join(output))
-
-# metric calculation
-metrics = maxmatch_metric(prediction_file, "./data/raw/gold.01")
-print(metrics)
+    
