@@ -7,3 +7,6 @@
 [submodule "6.英文评论情感分类的作业/allennlp"]
 	path = 6.英文评论情感分类的作业/allennlp
 	url = https://github.com/allenai/allennlp.git
+[submodule "7.中文语法错误纠正的作业/ELMoForManyLangs"]
+	path = 7.中文语法错误纠正的作业/ELMoForManyLangs
+	url = https://github.com/HIT-SCIR/ELMoForManyLangs

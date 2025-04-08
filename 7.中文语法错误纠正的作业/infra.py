@@ -1,0 +1,146 @@
+from torch.utils.data import Dataset
+import torch
+import re
+from tqdm import tqdm
+from typing import *
+
+
+class GECDataset(Dataset):
+    def __init__(
+        self, file: str, vocab_dict: Dict, max_length: int = 200, oov_index: int = 0
+    ):
+        self.source, self.target = [], []
+        self.vocab = vocab_dict
+        self.max_length = max_length
+        self.oov_index = oov_index
+        self.pad_token = "<pad>"
+        self.eos_token = "<eos>"
+        self.bos_token = "<bos>"
+        for line in tqdm(open(file, "r", encoding="utf-8").readlines()):
+            line = line.strip().split("\t")
+            assert len(line) == 2 if "train" in file else len(line) == 1, (
+                f"{file} {line}"
+            )
+            del_spaces = lambda string: re.sub("\s+", " ", string.strip()).split(" ")
+            self.source.append(del_spaces(line[0]))
+            if len(line) == 2:
+                self.target.append(del_spaces(line[1]))
+
+    def __len__(self):
+        return len(self.source)
+
+    def __getitem__(self, item):
+        return (
+            (self.source[item], self.target[item]) if self.target else self.source[item]
+        )
+
+    def pad_with_mask(self, source: List[List[str]], prefix: str):
+        """
+        Given a list of input text, pad them to `max_length` with special token `<pad>`, return input_ids, mask, and labels (optional)
+
+        If prefix=="target" , note that
+        1. special tokens `<bos>` and `<eos>` should be added to the target text sequence,
+        2. input and labels should be shifted
+        3. use -100 for pad token label
+
+        Args:
+            source: a list of input text
+            prefix: str, `source` or `target`.
+        Returns:
+            output: Dict
+
+        Examples:
+            input:
+                source: [['我', '在', '家里', '一个', '人', '学习', '中文', '。'], ['这个', '软件', '让', '我们', '什么', '有趣', '的', '事', '都', '记录', '。']]
+                prefix: "source"
+            output:
+                {
+                    'source_inputs': [['我', '在', '家里', '一个', '人', '学习', '中文', '。', '<pad>', '<pad>', '<pad>'], ['这个', '软件', '让', '我们', '什么', '有趣', '的', '事', '都', '记录', '。']],
+                    'source_input_ids': tensor([[ 123, 8, 9915, 0, 36,  564, 1814, 6, 3, 3, 3], [ 287, 1575,  222,  121, 1119, 8509, 5,  872,   71, 1934, 6]]),
+                    'source_mask': tensor([[1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
+                }
+        ############################
+            input:
+                source: [['我', '在', '家里', '自学', '中文', '。'], ['这个', '软件', '讓', '我们', '能', '把', '任何', '有趣', '的', '事', '都', '记录', '下來', '。']]
+                prefix: "target"
+            output:
+                {
+                    'target_inputs': [['<bos>', '我', '在', '家里', '自学', '中文', '。', '<eos>', '<pad>', '<pad>', '<pad>', '<pad>', '<pad>'], ['<bos>', '这个', '软件', '讓', '我们', '能', '把', '任何', '有趣', '的', '事', '都', '记录']],
+                    'target_input_ids': tensor([[ 1, 123, 8, 9915, 13355, 1814, 6, 2, 3, 3, 3, 3, 3], [1, 287, 1575, 0, 121, 89, 179, 596, 8509, 5, 872, 71, 1934]]),
+                    'target_mask': tensor([[1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]),
+                    'labels': tensor([[ 123, 8, 9915, 13355, 1814, 6, 2, -100, -100, -100, -100, -100, -100], [ 287, 1575, 0, 121, 89, 179, 596, 8509, 5, 872, 71, 1934, 2]])
+                }
+        """
+
+        output = {
+            f"{prefix}_inputs": [],
+            f"{prefix}_input_ids": [],
+            f"{prefix}_mask": [],
+            "labels": [],
+        }
+        max_length = min(max(list(map(len, source))), self.max_length)
+        for i in range(len(source)):
+            source_item = (
+                source[i][:max_length]
+                if prefix == "source"
+                else [self.bos_token, *source[i][: max_length - 2], self.eos_token]
+            )
+            padded_source_item = source_item + [self.pad_token] * (
+                max_length - len(source_item)
+            )
+            padded_source_item_ids = list(
+                [self.vocab.get(x, self.oov_index) for x in padded_source_item]
+            )
+
+            if prefix == "target":
+                output["target_input_ids"].append(padded_source_item_ids[:-1])
+                output["target_inputs"].append(padded_source_item[:-1])
+                output["target_mask"].append(
+                    [1] * (len(source_item) - 1) + [0] * (max_length - len(source_item))
+                )
+                output["labels"].append(
+                    [-100 if i == 3 else i for i in padded_source_item_ids[1:]]
+                )
+            else:
+                output["source_inputs"].append(padded_source_item)
+                output["source_input_ids"].append(padded_source_item_ids)
+                output["source_mask"].append(
+                    [1] * len(source_item) + [0] * (max_length - len(source_item))
+                )
+        output = {
+            key: torch.tensor(value)
+            if key != "source_inputs" and key != "target_inputs"
+            else value
+            for key, value in list(output.items())
+            if value
+        }
+        return output
+
+    def collate_fn(self, batch):
+        if self.target:
+            source = self.pad_with_mask([item[0] for item in batch], "source")
+            target = self.pad_with_mask([item[1] for item in batch], "target")
+            source.update(target)
+            return source
+        else:
+            return self.pad_with_mask(batch, "source")
+
+
+def load_vocab_dict(vocab_file="./zhs.model/word.dic"):
+    vocab_dict = {
+        (item := line.strip().split("\t"))[0]: int(item[1])
+        for line in open(vocab_file, "r", encoding="utf-8").readlines()
+    }
+    return vocab_dict
+
+
+if __name__ == "__main__":
+    from torch.utils.data import DataLoader
+
+    vocab_dict = load_vocab_dict()
+    dataset = GECDataset("./data/processed/seg.train", vocab_dict)
+    dataloader = DataLoader(dataset, batch_size=2, collate_fn=dataset.collate_fn)
+    # print(dataset[0])
+    for output in dataloader:
+        print(output)
+        break

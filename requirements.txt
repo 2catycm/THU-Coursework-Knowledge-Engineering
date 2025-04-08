@@ -1,2 +1,6 @@
 ipykernel
 ruff
+mypy
+pandas
+treescope
+tqdm
