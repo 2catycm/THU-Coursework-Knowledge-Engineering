@@ -1,0 +1,9 @@
+I-subject
+B-time
+B-location
+I-time
+O
+B-object
+I-location
+I-object
+B-subject
