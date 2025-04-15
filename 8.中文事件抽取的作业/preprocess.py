@@ -2,6 +2,8 @@
 import json
 import os
 
+from tqdm import tqdm
+
 
 # trigger data
 def process_trigger_data(file):
@@ -50,7 +52,27 @@ def process_trigger_data(file):
         lines = f.readlines()
     outlines = []
     ##################
-    # TODO
+    bar = tqdm(lines, desc="Processing trigger data")
+    for line in bar:
+        sample_object = json.loads(line.strip())
+        text = sample_object["text"]
+        tokens = list(text) # 单字分词
+        labels = sample_object["labels"]
+        labels_seq = ["O"] * len(tokens) # 默认情况
+        # 依据 labels 进行标注
+        for label in labels:
+            if label["trigger"]:
+                start = label["trigger"][1] # 起始位置
+                end = start + len(label["trigger"][0]) # 结束位置
+                # 触发词标注
+                labels_seq[start] = "B-EVENT"
+                for i in range(start + 1, end):
+                    labels_seq[i] = "I-EVENT"
+        # 生成输出
+        for i in range(len(tokens)):
+            outlines.append(f"{tokens[i]} {labels_seq[i]}")
+        outlines.append("") # 句子结束标志，用空行分割
+
     ##################
 
     if not os.path.exists("./data/processed/trigger"):

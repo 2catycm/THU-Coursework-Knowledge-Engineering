@@ -34,7 +34,9 @@ from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
 from utils import get_labels, load_and_cache_examples
 
-from transformers import AdamW, get_linear_schedule_with_warmup
+# from transformers import AdamW, get_linear_schedule_with_warmup
+from transformers import get_linear_schedule_with_warmup
+from torch.optim import AdamW
 from transformers import (
     WEIGHTS_NAME,
     BertConfig,
