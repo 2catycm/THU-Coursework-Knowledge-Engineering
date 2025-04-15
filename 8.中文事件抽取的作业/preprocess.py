@@ -126,7 +126,53 @@ def process_argument_data(file):
         lines = f.readlines()
     outlines = []
     #############
-    # TODO
+    bar = tqdm(lines, desc="Processing argument data")
+    for line in bar:
+        sample_object = json.loads(line.strip())
+        text = sample_object["text"]
+        tokens = list(text)
+        labels = sample_object["labels"]
+        labels_seq = ["O"] * len(tokens)
+        # 依据 labels 进行标注
+        for label in labels:
+            # 先处理触发词， 如果强行插入新词的话，不太好，我决定后面输出的时候特别操作。
+            if label["trigger"]:
+                start = label["trigger"][1] # 起始位置
+                end = start + len(label["trigger"][0]) # 结束位置
+                # 触发词标注
+                labels_seq[start] = "B-EVENT"
+                for i in range(start + 1, end-1):
+                    labels_seq[i] = "O"
+                labels_seq[end-1] = "E-EVENT" # 触发词最后一个字标注为 E-EVENT
+
+            # 处理 object subject
+            if label["object"]:
+                start = label["object"][1]
+                end = start + len(label["object"][0])
+                labels_seq[start] = "B-object"
+                for i in range(start + 1, end):
+                    labels_seq[i] = "I-object"
+
+            if label["subject"]:
+                start = label["subject"][1]
+                end = start + len(label["subject"][0])
+                labels_seq[start] = "B-subject"
+                for i in range(start + 1, end):
+                    labels_seq[i] = "I-subject"
+
+        # 生成输出
+        for i in range(len(tokens)):
+            if labels_seq[i] == "B-EVENT":
+                outlines.append("<event> O")
+                outlines.append(f"{tokens[i]} O")
+            elif labels_seq[i] == "E-EVENT":
+                outlines.append(f"{tokens[i]} O")
+                outlines.append("<event/> O")
+            else:
+                # 普通情况
+                outlines.append(f"{tokens[i]} {labels_seq[i]}")
+        outlines.append("") # 句子结束标志，用空行分割
+
     #############
 
     if not os.path.exists("./data/argument"):
