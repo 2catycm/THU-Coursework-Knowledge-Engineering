@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Named entity recognition fine-tuning: utilities to work with CoNLL-2003 task. """
+"""Named entity recognition fine-tuning: utilities to work with CoNLL-2003 task."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -52,7 +52,7 @@ class InputFeatures(object):
             input_ids: List[int]
             input_mask: List[int], expected to containing only 1 and 0, where 1 is for unmasked tokens and 0 for masked tokens
             label_ids: List[int]
-        
+
         all 3 arguments should have same length
         """
         self.input_ids = input_ids
@@ -75,36 +75,36 @@ def read_examples_from_file(data_dir, mode):
         #############
         # TODO
 
-        examples.append(InputExample(guid="%s-%d".format(mode, guid_index),
-                                        words=words,
-                                        labels=labels))
+        examples.append(
+            InputExample(
+                guid="%s-%d".format(mode, guid_index), words=words, labels=labels
+            )
+        )
     return examples
 
 
-def convert_examples_to_features(examples,
-                                 label_list,
-                                 max_seq_length,
-                                 tokenizer,
-                                 pad_token_label_id):
-    """ Loads a list of `InputExample`s into a list of `InputFeatures`s
-        
-        Args:
-            examples: List[InputExample]
-            label_list: a list of all unique labels
-            max_seq_length: int, all sequence should be padded or truncated to `max_seq_length`
-            tokenizer: PretrainedTokenizer
-            pad_token_label_id: label id for pad token
-        Returns:
-            features: List[InputFeatures]
+def convert_examples_to_features(
+    examples, label_list, max_seq_length, tokenizer, pad_token_label_id
+):
+    """Loads a list of `InputExample`s into a list of `InputFeatures`s
+
+    Args:
+        examples: List[InputExample]
+        label_list: a list of all unique labels
+        max_seq_length: int, all sequence should be padded or truncated to `max_seq_length`
+        tokenizer: PretrainedTokenizer
+        pad_token_label_id: label id for pad token
+    Returns:
+        features: List[InputFeatures]
     """
     cls_token = tokenizer.cls_token
     sep_token = tokenizer.sep_token
-    pad_token_id = tokenizer.pad_token_id # padded token id
+    pad_token_id = tokenizer.pad_token_id  # padded token id
     # tokenizer.convert_tokens_to_ids([tokenizer.pad_token])[0]
     label_map = {label: i for i, label in enumerate(label_list)}
 
     features = []
-    for (ex_index, example) in enumerate(examples):
+    for ex_index, example in enumerate(examples):
         input_ids = []
         input_mask = []
         label_ids = []
@@ -112,20 +112,23 @@ def convert_examples_to_features(examples,
         # TODO
         # Hint: remember to add `[CLS]` and `[SEP]` tokens for BERT model
         # e.g. [CLS] the dog is hairy . [SEP]
-        
+
         features.append(
-                InputFeatures(input_ids=input_ids,
-                              input_mask=input_mask,
-                              label_ids=label_ids))
+            InputFeatures(
+                input_ids=input_ids, input_mask=input_mask, label_ids=label_ids
+            )
+        )
     return features
 
 
-def load_and_cache_examples(args, tokenizer, labels, pad_token_label_id, mode, max_length):
-
+def load_and_cache_examples(
+    args, tokenizer, labels, pad_token_label_id, mode, max_length
+):
     logger.info("Creating features from dataset file at %s", args.data_dir)
     examples = read_examples_from_file(args.data_dir, mode)
-    features = convert_examples_to_features(examples, labels, max_length, tokenizer,
-                                            pad_token_label_id=pad_token_label_id)
+    features = convert_examples_to_features(
+        examples, labels, max_length, tokenizer, pad_token_label_id=pad_token_label_id
+    )
 
     # Convert to Tensors and build dataset
     all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
@@ -134,6 +137,7 @@ def load_and_cache_examples(args, tokenizer, labels, pad_token_label_id, mode, m
 
     dataset = TensorDataset(all_input_ids, all_input_mask, all_label_ids)
     return dataset
+
 
 def get_labels(path):
     with open(path, "r") as f:

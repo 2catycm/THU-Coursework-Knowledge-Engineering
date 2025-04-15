@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Fine-tuning the library models for named entity recognition on CoNLL-2003 (Bert). """
+"""Fine-tuning the library models for named entity recognition on CoNLL-2003 (Bert)."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -26,6 +26,7 @@ import random
 import numpy as np
 import torch
 from seqeval.metrics import precision_score, recall_score, f1_score
+
 # from tensorboardX import SummaryWriter
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader
@@ -34,11 +35,14 @@ from tqdm import tqdm, trange
 from utils import get_labels, load_and_cache_examples
 
 from transformers import AdamW, get_linear_schedule_with_warmup
-from transformers import WEIGHTS_NAME, BertConfig, BertForTokenClassification, BertTokenizer
+from transformers import (
+    WEIGHTS_NAME,
+    BertConfig,
+    BertForTokenClassification,
+    BertTokenizer,
+)
 
 logger = logging.getLogger(__name__)
-
-
 
 
 def set_seed(args):
@@ -48,24 +52,42 @@ def set_seed(args):
 
 
 def train(args, train_dataset, model, tokenizer, labels, pad_token_label_id):
-    """ Train the model """
+    """Train the model"""
     # if args.local_rank in [-1, 0]:
     #     tb_writer = SummaryWriter()
 
-    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=args.batch_size, shuffle=True
+    )
 
     t_total = len(train_dataloader) * args.epochs
 
     # Prepare optimizer and schedule (linear warmup and decay)
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
-        {"params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-         "weight_decay": args.weight_decay},
-        {"params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": 0.0}
+        {
+            "params": [
+                p
+                for n, p in model.named_parameters()
+                if not any(nd in n for nd in no_decay)
+            ],
+            "weight_decay": args.weight_decay,
+        },
+        {
+            "params": [
+                p
+                for n, p in model.named_parameters()
+                if any(nd in n for nd in no_decay)
+            ],
+            "weight_decay": 0.0,
+        },
     ]
-    optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
-    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total)
-
+    optimizer = AdamW(
+        optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon
+    )
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total
+    )
 
     # Train!
     logger.info("***** Running training *****")
@@ -84,11 +106,15 @@ def train(args, train_dataset, model, tokenizer, labels, pad_token_label_id):
         for step, batch in enumerate(epoch_iterator):
             model.train()
             batch = tuple(t.to(args.device) for t in batch)
-            inputs = {"input_ids": batch[0],
-                      "attention_mask": batch[1],
-                      "labels": batch[2]}
+            inputs = {
+                "input_ids": batch[0],
+                "attention_mask": batch[1],
+                "labels": batch[2],
+            }
             outputs = model(**inputs)
-            loss = outputs[0]  # model outputs are always tuple in pytorch-transformers (see doc)
+            loss = outputs[
+                0
+            ]  # model outputs are always tuple in pytorch-transformers (see doc)
             loss.backward()
 
             tr_loss += loss.item()
@@ -100,13 +126,17 @@ def train(args, train_dataset, model, tokenizer, labels, pad_token_label_id):
             optimizer.zero_grad()
             global_step += 1
 
-        results, _ = evaluate(args, model, tokenizer, labels, pad_token_label_id, mode="dev")
+        results, _ = evaluate(
+            args, model, tokenizer, labels, pad_token_label_id, mode="dev"
+        )
         if results["f1"] > best_metric:
             best_metric = results["f1"]
             output_dir = os.path.join(args.output_dir, "checkpoint-best")
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
-            model_to_save = model.module if hasattr(model, "module") else model  # Take care of distributed/parallel training
+            model_to_save = (
+                model.module if hasattr(model, "module") else model
+            )  # Take care of distributed/parallel training
             model_to_save.save_pretrained(output_dir)
             torch.save(args, os.path.join(output_dir, "training_args.bin"))
             tokenizer.save_pretrained(output_dir)
@@ -116,9 +146,18 @@ def train(args, train_dataset, model, tokenizer, labels, pad_token_label_id):
 
 
 def evaluate(args, model, tokenizer, labels, pad_token_label_id, mode, prefix=""):
-    eval_dataset = load_and_cache_examples(args, tokenizer, labels, pad_token_label_id, mode=mode, max_length=args.max_length)
+    eval_dataset = load_and_cache_examples(
+        args,
+        tokenizer,
+        labels,
+        pad_token_label_id,
+        mode=mode,
+        max_length=args.max_length,
+    )
 
-    eval_dataloader = DataLoader(eval_dataset, batch_size=args.batch_size, shuffle=False)
+    eval_dataloader = DataLoader(
+        eval_dataset, batch_size=args.batch_size, shuffle=False
+    )
 
     # Eval!
     logger.info("***** Running evaluation %s *****", prefix)
@@ -133,9 +172,11 @@ def evaluate(args, model, tokenizer, labels, pad_token_label_id, mode, prefix=""
         batch = tuple(t.to(args.device) for t in batch)
 
         with torch.no_grad():
-            inputs = {"input_ids": batch[0],
-                      "attention_mask": batch[1],
-                      "labels": batch[2]}
+            inputs = {
+                "input_ids": batch[0],
+                "attention_mask": batch[1],
+                "labels": batch[2],
+            }
             outputs = model(**inputs)
             tmp_eval_loss, logits = outputs[0], outputs[1]
             eval_loss += tmp_eval_loss.item()
@@ -143,10 +184,12 @@ def evaluate(args, model, tokenizer, labels, pad_token_label_id, mode, prefix=""
         if preds is None:
             preds = logits.detach().cpu().numpy()
             out_label_ids = inputs["labels"].detach().cpu().numpy()
-            
+
         else:
             preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
-            out_label_ids = np.append(out_label_ids, inputs["labels"].detach().cpu().numpy(), axis=0)
+            out_label_ids = np.append(
+                out_label_ids, inputs["labels"].detach().cpu().numpy(), axis=0
+            )
         # memory management
         del outputs, tmp_eval_loss, logits
         torch.cuda.empty_cache()
@@ -167,15 +210,12 @@ def evaluate(args, model, tokenizer, labels, pad_token_label_id, mode, prefix=""
     results = {
         "precision": precision_score(out_label_list, preds_list),
         "recall": recall_score(out_label_list, preds_list),
-        "f1": f1_score(out_label_list, preds_list)
+        "f1": f1_score(out_label_list, preds_list),
     }
 
     logger.info("***** Eval results %s *****", prefix)
     print(results)
     return results, preds_list
-
-
-
 
 
 def main():
@@ -189,20 +229,28 @@ def main():
     parser.add_argument("--max_length", default=128, type=int)
     parser.add_argument("--output_dir", default="./checkpoint", type=str)
     parser.add_argument("--mode", default="trigger", type=str)
-    parser.add_argument("--learning_rate", default=5e-5, type=float,
-                        help="The initial learning rate for Adam.")
-    parser.add_argument("--weight_decay", default=0.0, type=float,
-                        help="Weight decay if we apply some.")
-    parser.add_argument("--adam_epsilon", default=1e-8, type=float,
-                        help="Epsilon for Adam optimizer.")
+    parser.add_argument(
+        "--learning_rate",
+        default=5e-5,
+        type=float,
+        help="The initial learning rate for Adam.",
+    )
+    parser.add_argument(
+        "--weight_decay", default=0.0, type=float, help="Weight decay if we apply some."
+    )
+    parser.add_argument(
+        "--adam_epsilon", default=1e-8, type=float, help="Epsilon for Adam optimizer."
+    )
     parser.add_argument("--device", default="cuda", type=str)
-    parser.add_argument("--max_grad_norm", default=1.0, type=float,
-                        help="Max gradient norm.")
-    parser.add_argument("--warmup_steps", default=0, type=int,
-                        help="Linear warmup over warmup_steps.")
+    parser.add_argument(
+        "--max_grad_norm", default=1.0, type=float, help="Max gradient norm."
+    )
+    parser.add_argument(
+        "--warmup_steps", default=0, type=int, help="Linear warmup over warmup_steps."
+    )
     parser.add_argument("--model_type", default="bert", type=str)
     parser.add_argument("--eval_only", action="store_true")
-   
+
     args = parser.parse_args()
 
     args.output_dir = args.output_dir + "/" + args.mode
@@ -210,7 +258,7 @@ def main():
     args.labels = args.data_dir + "/" + "labels.txt"
 
     model_name = "hfl/chinese-bert-wwm-ext"
-    
+
     # Set seed
     set_seed(args)
 
@@ -222,7 +270,9 @@ def main():
 
     # load tokenier and plm
     tokenizer = BertTokenizer.from_pretrained(model_name)
-    model = BertForTokenClassification.from_pretrained(model_name, num_labels=num_labels)
+    model = BertForTokenClassification.from_pretrained(
+        model_name, num_labels=num_labels
+    )
 
     if args.mode == "argument":
         # add special markers
@@ -232,8 +282,17 @@ def main():
     model.to(args.device)
 
     if not args.eval_only:
-        train_dataset = load_and_cache_examples(args, tokenizer, labels, pad_token_label_id, mode="train", max_length=args.max_length)
-        global_step, tr_loss = train(args, train_dataset, model, tokenizer, labels, pad_token_label_id)
+        train_dataset = load_and_cache_examples(
+            args,
+            tokenizer,
+            labels,
+            pad_token_label_id,
+            mode="train",
+            max_length=args.max_length,
+        )
+        global_step, tr_loss = train(
+            args, train_dataset, model, tokenizer, labels, pad_token_label_id
+        )
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
 
     # Evaluation
@@ -246,9 +305,25 @@ def main():
     model = BertForTokenClassification.from_pretrained(checkpoint)
     model.to(args.device)
     if args.mode == "argument":
-        result, predictions = evaluate(args, model, tokenizer, labels, pad_token_label_id, mode="test", prefix=global_step)
+        result, predictions = evaluate(
+            args,
+            model,
+            tokenizer,
+            labels,
+            pad_token_label_id,
+            mode="test",
+            prefix=global_step,
+        )
     else:
-        result, predictions = evaluate(args, model, tokenizer, labels, pad_token_label_id, mode="dev", prefix=global_step)
+        result, predictions = evaluate(
+            args,
+            model,
+            tokenizer,
+            labels,
+            pad_token_label_id,
+            mode="dev",
+            prefix=global_step,
+        )
     if global_step:
         result = {"{}_{}".format(global_step, k): v for k, v in result.items()}
     results.update(result)
@@ -256,8 +331,6 @@ def main():
     with open(output_eval_file, "w") as writer:
         for key in sorted(results.keys()):
             writer.write("{} = {}\n".format(key, str(results[key])))
-
-    
 
     output_test_predictions_file = os.path.join(best_checkpoint, "eval_predictions.txt")
     with open(output_test_predictions_file, "w") as writer:
@@ -269,10 +342,15 @@ def main():
                     if not predictions[example_id]:
                         example_id += 1
                 elif predictions[example_id]:
-                    output_line = line.split()[0] + " " + predictions[example_id].pop(0) + "\n"
+                    output_line = (
+                        line.split()[0] + " " + predictions[example_id].pop(0) + "\n"
+                    )
                     writer.write(output_line)
                 else:
-                    logger.warning("Maximum sequence length exceeded: No prediction for '%s'.", line.split()[0])
+                    logger.warning(
+                        "Maximum sequence length exceeded: No prediction for '%s'.",
+                        line.split()[0],
+                    )
 
     return results
 

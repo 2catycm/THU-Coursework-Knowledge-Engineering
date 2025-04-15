@@ -2,6 +2,7 @@
 import json
 import os
 
+
 # trigger data
 def process_trigger_data(file):
     """
@@ -45,8 +46,7 @@ def process_trigger_data(file):
     ```
     """
 
-
-    with open(f"./data/raw/{file}.json", encoding="utf-8")as f:
+    with open(f"./data/raw/{file}.json", encoding="utf-8") as f:
         lines = f.readlines()
     outlines = []
     ##################
@@ -55,8 +55,10 @@ def process_trigger_data(file):
 
     if not os.path.exists("./data/processed/trigger"):
         os.makedirs("./data/processed/trigger", exist_ok=True)
-    with open(f"./data/processed/trigger/{file}.txt", "w")as f:
+    with open(f"./data/processed/trigger/{file}.txt", "w") as f:
         f.writelines("\n".join(outlines))
+
+
 # %%
 # argument data
 def process_argument_data(file):
@@ -98,7 +100,7 @@ def process_argument_data(file):
     者 O
     ```
     """
-    with open(f"./data/raw/{file}.json", encoding="utf-8")as f:
+    with open(f"./data/raw/{file}.json", encoding="utf-8") as f:
         lines = f.readlines()
     outlines = []
     #############
@@ -107,21 +109,24 @@ def process_argument_data(file):
 
     if not os.path.exists("./data/argument"):
         os.makedirs("./data/processed/argument", exist_ok=True)
-    with open(f"./data/processed/argument/{file}.txt", "w")as f:
+    with open(f"./data/processed/argument/{file}.txt", "w") as f:
         f.writelines("\n".join(outlines))
+
 
 def gen_labels(mode):
     path = f"./data/processed/{mode}/train.txt"
     labels = []
-    with open(path)as f:
+    with open(path) as f:
         lines = f.readlines()
     for line in lines:
         labels.append(line.strip().split(" ")[-1])
     labels = list(set(labels))
     if "" in labels:
         labels.remove("")
-    with open(f"./data/processed/{mode}/labels.txt", "w")as f:
+    with open(f"./data/processed/{mode}/labels.txt", "w") as f:
         f.writelines("\n".join(labels))
+
+
 # %%
 if __name__ == "__main__":
     files = ["train", "dev"]

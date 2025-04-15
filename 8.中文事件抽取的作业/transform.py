@@ -4,17 +4,18 @@ import json
 convert predictions for event trigger identification to IOB2 format for stage2 training (argument identification)
 """
 
+
 def convert(preds):
     """
     Args:
         preds: List[List[List[int]]], [[[trigger1_start_index, trigger2_start_index,...], [trigger1_end_index, trigger2_end_index, ...]], ...]
     """
-    with open(f"./data/raw/dev.json", encoding="utf-8")as f:
+    with open(f"./data/raw/dev.json", encoding="utf-8") as f:
         lines = f.readlines()
     outlines = []
     for i, line in enumerate(lines):
-        trigger_start = preds[i][0] # list[int] of start token index
-        trigger_end = preds[i][1] # list[int] of end token index
+        trigger_start = preds[i][0]  # list[int] of start token index
+        trigger_end = preds[i][1]  # list[int] of end token index
         argument_dict = dict()
         line = line.strip()
         d = json.loads(line)
@@ -27,7 +28,12 @@ def convert(preds):
                 if label[k]:
                     start = label[k][1]
                     end = start + len(label[k][0])
-                    tmp_dict = dict(zip(range(start, end), [f"B-{k}"] + [f"I-{k}"] * (end-start-1)))
+                    tmp_dict = dict(
+                        zip(
+                            range(start, end),
+                            [f"B-{k}"] + [f"I-{k}"] * (end - start - 1),
+                        )
+                    )
                     argument_dict.update(tmp_dict)
         for i in range(len(text)):
             if i in trigger_start:
@@ -36,14 +42,15 @@ def convert(preds):
                 outlines.append("<event/> O")
             outlines.append(" ".join([text[i], argument_dict.get(i, "O")]))
         outlines.append("")
-    with open("./data/processed/argument/test.txt", "w", encoding="utf-8")as f:
+    with open("./data/processed/argument/test.txt", "w", encoding="utf-8") as f:
         f.writelines("\n".join(outlines))
 
+
 def read_prediction():
-    with open("./checkpoint/trigger/checkpoint-best/eval_predictions.txt")as f:
+    with open("./checkpoint/trigger/checkpoint-best/eval_predictions.txt") as f:
         lines = f.readlines()
-    trigger_preds = [] # [[[start1, start2,...], [end1, end2, ...]]]
-    pred = [[], []] # [[start], [end]]
+    trigger_preds = []  # [[[start1, start2,...], [end1, end2, ...]]]
+    pred = [[], []]  # [[start], [end]]
     i = 0
     idx = 0
     while idx < len(lines):
@@ -62,20 +69,20 @@ def read_prediction():
                     i += 1
                     line = lines[idx].strip()
                     line_list = line.split(" ")
-                pred[1].append(i) 
+                pred[1].append(i)
             else:
                 i += 1
                 idx += 1
                 continue
         else:
-            i = 0 # reset token index
-            trigger_preds.append(pred) # save one sent
+            i = 0  # reset token index
+            trigger_preds.append(pred)  # save one sent
             pred = [[], []]
             idx += 1
     trigger_preds.append(pred)
     return trigger_preds
 
+
 if __name__ == "__main__":
     preds = read_prediction()
     convert(preds)
-    
