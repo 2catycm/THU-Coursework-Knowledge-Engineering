@@ -1,4 +1,5 @@
 import json
+from tqdm import tqdm
 
 """
 convert predictions for event trigger identification to IOB2 format for stage2 training (argument identification)
@@ -13,7 +14,8 @@ def convert(preds):
     with open(f"./data/raw/dev.json", encoding="utf-8") as f:
         lines = f.readlines()
     outlines = []
-    for i, line in enumerate(lines):
+    bar = tqdm(enumerate(lines), desc="Processing")
+    for i, line in bar:
         trigger_start = preds[i][0]  # list[int] of start token index
         trigger_end = preds[i][1]  # list[int] of end token index
         argument_dict = dict()

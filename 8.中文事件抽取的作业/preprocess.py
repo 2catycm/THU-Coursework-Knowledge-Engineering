@@ -160,6 +160,20 @@ def process_argument_data(file):
                 for i in range(start + 1, end):
                     labels_seq[i] = "I-subject"
 
+            if label['time']:
+                start = label['time'][1]
+                end = start + len(label['time'][0])
+                labels_seq[start] = "B-time"
+                for i in range(start + 1, end):
+                    labels_seq[i] = "I-time"
+
+            if label['location']:
+                start = label['location'][1]
+                end = start + len(label['location'][0])
+                labels_seq[start] = "B-location"
+                for i in range(start + 1, end):
+                    labels_seq[i] = "I-location"
+
         # 生成输出
         for i in range(len(tokens)):
             if labels_seq[i] == "B-EVENT":
