@@ -3,11 +3,32 @@ import numpy as np
 from transformers import BertTokenizer, BertModel
 
 
-def search_head_entity(kg: dict, question: str):
-    """在KG中匹配问题中的实体，返回最大匹配的实体"""
-    head_entity = []
-    # TODO
-    return head_entity[0]
+sorted_heads = None
+
+def search_head_entity(kg: dict, question: str) -> str:
+    """基于正向最大匹配的头实体识别
+    Args:
+        kg: 知识图谱字典，包含head2id等字段
+        question: 待查询的问题文本
+    Returns:
+        匹配成功的头实体字符串，未找到返回None
+    """
+    # 获取所有可能的头实体
+    global sorted_heads
+    if sorted_heads is None:
+        all_heads = list(kg['head2id'].keys())
+        
+        # 对头实体按长度排序，优先匹配长的实体
+        sorted_heads = sorted(all_heads, key=len, reverse=True)
+        print("头实体数量：", len(sorted_heads))
+        print(sorted_heads[:5])
+    # 遍历所有头实体，检查是否在问题中出现
+    for head in sorted_heads:
+        if head in question:
+            return head
+    
+    # 如果没有找到匹配的头实体
+    return ""
 
 
 if __name__ == "__main__":
@@ -29,14 +50,16 @@ if __name__ == "__main__":
     for idx, question in enumerate(questions):
         # 在知识图谱中找到问题中的实体
         head = search_head_entity(kg, question)
-        if head is None:
+        # if head is None:
+        if head=="":
             print("问题：", question)
             print("答案：", "无法找到实体")
             print("原答案：", answers[idx])
             print("---------------------------")
             continue
         # 找到实体后，找到实体对应的关系
-        relations = list(kg[head].keys())
+        # relations = list(kg[head].keys())
+        relations = list(kg["head2relations"][head])
         # 计算问题和关系的相似度，找到最相似的关系
         max_sim = 0
         max_relation = ""
@@ -55,7 +78,8 @@ if __name__ == "__main__":
                 max_sim = cos_sim
                 max_relation = relation
         # 找到最相似的关系后，找到关系对应的答案
-        answer = kg[head][max_relation]
+        # answer = kg[head][max_relation]
+        answer = kg["head_relations2answers"][(head, max_relation)]
         input_text = [answers[idx], answer]
         inputs = tokenizer(input_text, return_tensors="pt", padding=True)
         outputs = model(**inputs)
