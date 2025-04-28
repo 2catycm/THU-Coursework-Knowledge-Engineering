@@ -19,7 +19,7 @@ def preprocess():
         os.makedirs("./processed", exist_ok=True)
         
         # 读取原始JSONL文件（注意：使用..表示上级目录）
-        with open("/home/ycm/repos/coursework/THU-Coursework-Knowledge-Engineering/9.基于知识图谱的问答系统的作业/zhishime.json", "r", encoding="utf-8") as f:
+        with open("../zhishime.json", "r", encoding="utf-8") as f:
             # 逐行解析JSON对象（适用于JSON Lines格式）
             # raw_relation_data = [json.loads(line.strip()) for line in f.readlines()]
             
@@ -57,13 +57,14 @@ def preprocess():
 
             # 构建头实体到关系的映射
             if head not in kg["head2relations"]:
-                kg["head2relations"][head] = set()
-            kg["head2relations"][head].add(relation)
+                kg["head2relations"][head] = list()
+            kg["head2relations"][head].append(relation)
 
             # 构建头实体到关系和答案的映射
-            if (head, relation) not in kg["head_relations2answers"]:
-                kg["head_relations2answers"][(head, relation)] = ""
-            kg["head_relations2answers"][(head, relation)] += f"{tail}, "
+            head_relation = f"({head}, {relation})"
+            if head_relation not in kg["head_relations2answers"]:
+                kg["head_relations2answers"][head_relation] = ""
+            kg["head_relations2answers"][head_relation] += f"{tail}, "
 
         # 打印统计信息
         print(f"[统计] 头实体数: {len(kg['head2id'])} | 尾实体数: {len(kg['tail2id'])} | 关系类型数: {len(kg['relation2id'])}")

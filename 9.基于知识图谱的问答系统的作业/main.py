@@ -1,6 +1,7 @@
 import json
 import numpy as np
 from transformers import BertTokenizer, BertModel
+from transformers import AutoTokenizer, AutoModel
 
 
 sorted_heads = None
@@ -44,8 +45,11 @@ if __name__ == "__main__":
     with open("data/processed/kg.json", "r", encoding="utf-8") as f:
         kg = json.load(f)
     # 加载模型和分词器
-    model = BertModel.from_pretrained("bert-base-chinese")
-    tokenizer = BertTokenizer.from_pretrained("bert-base-chinese")
+    # model = BertModel.from_pretrained("bert-base-chinese")
+    # tokenizer = BertTokenizer.from_pretrained("bert-base-chinese")
+    model = AutoModel.from_pretrained("BAAI/bge-base-zh-v1.5")
+    tokenizer = AutoTokenizer.from_pretrained("BAAI/bge-base-zh-v1.5")
+    
     # 遍历每个问题
     for idx, question in enumerate(questions):
         # 在知识图谱中找到问题中的实体
@@ -79,7 +83,7 @@ if __name__ == "__main__":
                 max_relation = relation
         # 找到最相似的关系后，找到关系对应的答案
         # answer = kg[head][max_relation]
-        answer = kg["head_relations2answers"][(head, max_relation)]
+        answer = kg["head_relations2answers"][f"({head}, {max_relation})"]
         input_text = [answers[idx], answer]
         inputs = tokenizer(input_text, return_tensors="pt", padding=True)
         outputs = model(**inputs)
