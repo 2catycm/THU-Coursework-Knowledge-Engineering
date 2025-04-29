@@ -39,84 +39,64 @@ def _compute_ngram_counter(tokens, max_n):
 
 def bleu_score(
     candidate_corpus: List[List[str]],  # 候选翻译的token列表的列表。
-    references_corpus: List[List[str]], # 参考翻译的token列表的列表，数量应与候选一一对应。
-    max_n=4, # 最大的ngram的数量，默认4。
-    weights: List[float] = [0.25] * 4, # 用于计算加权几何平均时的权重列表，长度应为max_n。
-) -> float: # BLEU分数（0到1之间）。
+    references_corpus: List[List[str]],  # 参考翻译的token列表的列表，数量应与候选一一对应。
+    max_n=4,  # 最大的ngram的数量，默认4。
+    weights: List[float] = [0.25] * 4,  # 用于计算加权几何平均时的权重列表，长度应为max_n。
+    verbose: bool = True
+) -> float:  # BLEU分数（0到1之间）。
     """
     计算候选翻译语料库和参考翻译语料库之间的BLEU分数。
     """
-    # =====================
-    # 1. 计算各n-gram的累计剪辑计数和总计数
-    # =====================
-    # 初始化剪辑后计数和总计数的列表
-    clipped_counts = [0] * max_n
-    total_counts = [0] * max_n
+    assert len(candidate_corpus) == len(references_corpus), "候选翻译和参考翻译的数量必须一致。"
+    assert len(weights) == max_n, "权重列表的长度必须等于最大的ngram数量。"
 
-    # 用于brevity penalty的长度统计
-    c_len = 0  # 候选总长度
-    r_len = 0  # 参考总长度（最接近匹配）
+    total_clip_count = [0] * max_n
+    total_candidate_ngrams = [0] * max_n
+    total_candidate_length = 0
+    total_reference_length = 0
 
-    # 遍历每一对候选和参考
-    for cand_tokens, ref_tokens in zip(candidate_corpus, references_corpus):
-        # 更新长度
-        c_len += len(cand_tokens)
-        # 选择参考长度与候选最接近的
-        # （这里只取单参考，故直接使用ref长度）
-        r_len += len(ref_tokens)
+    for candidate, references in zip(candidate_corpus, references_corpus):
+        candidate_ngrams = _compute_ngram_counter(candidate, max_n)
+        reference_ngrams = [_compute_ngram_counter(ref, max_n) for ref in references]
+        max_reference_ngrams = collections.Counter()
+        for ref_ngrams in reference_ngrams:
+            for ngram, count in ref_ngrams.items():
+                max_reference_ngrams[ngram] = max(max_reference_ngrams[ngram], count)
 
-        # 获取候选和参考各自的n-gram计数器
-        cand_counter = _compute_ngram_counter(cand_tokens, max_n)
-        ref_counter = _compute_ngram_counter(ref_tokens, max_n)
+        for n in range(1, max_n + 1):
+            for ngram, count in candidate_ngrams.items():
+                if len(ngram) == n:
+                    total_candidate_ngrams[n - 1] += count
+                    total_clip_count[n - 1] += min(count, max_reference_ngrams[ngram])
 
-        # 遍历n-gram的各个order，由长度tuple决定
-        for ngram_tuple, count in cand_counter.items():
-            n = len(ngram_tuple)  # 当前n-gram的order
-            if n <= max_n:
-                # 剪辑计数：candidate出现次数与reference出现次数的最小值
-                clipped = min(count, ref_counter.get(ngram_tuple, 0))
-                clipped_counts[n - 1] += clipped
-                # 累计candidate的n-gram总数
-                total_counts[n - 1] += count
+        candidate_length = len(candidate)
+        total_candidate_length += candidate_length
+        reference_lengths = [len(ref) for ref in references]
+        closest_ref_length = min(reference_lengths, key=lambda x: abs(x - candidate_length))
+        total_reference_length += closest_ref_length
 
-    # =====================
-    # 2. 计算每个n-gram order的Precision
-    # =====================
     precisions = []
-    for i in range(max_n):
-        if total_counts[i] == 0:
-            # 如果某个order的candidate完全没有n-gram，则Precision定义为0
-            precisions.append(0.0)
+    for clip_count, candidate_ngrams in zip(total_clip_count, total_candidate_ngrams):
+        if candidate_ngrams == 0:
+            precisions.append(0)
         else:
-            precisions.append(clipped_counts[i] / total_counts[i])
+            precisions.append(clip_count / candidate_ngrams)
 
-    # =====================
-    # 3. 计算brevity penalty (BP)
-    # =====================
-    # 当候选长度大于参考长度时，BP=1；否则BP=exp(1 - r/c)
-    if c_len > r_len:
-        bp = 1.0
-    else:
-        # 防止除0
-        bp = math.exp(1 - (r_len / c_len)) if c_len > 0 else 0.0
+    if verbose:
+        print(f"Precisions: {precisions}")
+        print(f"Total candidate length: {total_candidate_length}")
+        print(f"Total reference length: {total_reference_length}")
 
-    # =====================
-    # 4. 计算加权几何平均（log域）并得到BLEU分数
-    # =====================
-    # 如果任何precision为0，则整体几何平均为0
-    if min(precisions) == 0:
-        geo_mean = 0.0
-    else:
-        # sum(weights_i * ln precision_i)
-        geo_mean = math.exp(
-            sum(weights[i] * math.log(precisions[i]) for i in range(max_n))
-        )
+    if total_candidate_length == 0:
+        return 0
 
-    bleu = bp * geo_mean
+    brevity_penalty = 1 if total_candidate_length >= total_reference_length else math.exp(
+        1 - total_reference_length / total_candidate_length)
+
+    if verbose:
+        print(f"Brevity penalty: {brevity_penalty}")
+
+    log_precisions = [math.log(p) if p > 0 else float('-inf') for p in precisions]
+    bleu = brevity_penalty * math.exp(sum(w * p for w, p in zip(weights, log_precisions)))
+
     return bleu
-
-# 示例：
-# cand = [['the', 'cat', 'is', 'on', 'the', 'mat']]
-# ref = [['there', 'is', 'a', 'cat', 'on', 'the', 'mat']]
-# print(bleu_score(cand, ref))  # 输出BLEU分数  
-
