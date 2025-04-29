@@ -56,6 +56,9 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 
+from einops import einsum
+
+
 class ScaledDotProductAttention(nn.Module):
     def __init__(self, dropout):
         """实现Scaled Dot-Product Attention"""
@@ -63,17 +66,37 @@ class ScaledDotProductAttention(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.softmax = nn.Softmax(dim=-1)
 
-    def forward(self, q, k, v, mask):
+    def forward(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,  # [batch_size, num_heads, seq_len, hidden_size / num_heads]
+        mask: torch.Tensor  # [batch_size, 1, seq_len, seq_len]
+    ):
         """
-        q, k, v的形状为[batch_size, num_heads, seq_len, hidden_size / num_heads]
-        mask的形状为[batch_size, 1, seq_len, seq_len]
         output:
             - context: 输出值
             - attention: 计算得到的注意力矩阵
         """
-        context, attention = None, None
-        # TODO
+        d_k = q.size(-1)
+        sqrt_d_k = torch.sqrt(torch.tensor(d_k, dtype=torch.float32))
+        # 计算点积，使用einops的einsum
+        
+        # b,h 独立，做乘法的是 i,j，
+        # d 维度会进行求和操作，因为它只在输入中出现，不在输出中出现（被reduce掉了）。
+        scores = einsum(q, k, 'b h i d, b h j d -> b h i j') / sqrt_d_k 
+
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, -1e9) # mask到的位置不能被 attention 注意到，本来是赋值为0，但是待会有softmax，应该给-inf。
+
+        attention = self.softmax(scores)
+        attention = self.dropout(attention)
+
+        # 计算context，使用einops的einsum
+        # b,h 独立，i， d乘法；对 j 求和
+        context = einsum(attention, v, 'b h i j, b h j d -> b h i d')
         return context, attention
+
 
 
 class MultiHeadAttention(nn.Module):
@@ -88,18 +111,43 @@ class MultiHeadAttention(nn.Module):
         self.linear_v = nn.Linear(hidden_size, hidden_size)
         self.linear = nn.Linear(hidden_size, hidden_size)
         self.scaled_dot_product_attention = ScaledDotProductAttention(dropout)
-        self.dropout = nn.Dropout(dropout)
+        self.dropout_layer = nn.Dropout(dropout)
         self.layer_norm = nn.LayerNorm(hidden_size)
 
-    def forward(self, q, k, v, mask):
-        """
-        q, k, v的形状为[batch_size, seq_len, hidden_size]
-        mask的形状为[batch_size, 1, seq_len, seq_len]
-        """
+    def forward(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,  # [batch_size, num_heads, seq_len, hidden_size / num_heads]
+        mask: torch.Tensor  # [batch_size, 1, seq_len, seq_len]
+    ):
         residual = q
         batch_size = q.size(0)
-        output, attention = None, None
-        # TODO
+
+        # 线性变换
+        q = self.linear_q(q)
+        k = self.linear_k(k)
+        v = self.linear_v(v)
+
+        # 分割成多个头
+        head_dim = self.hidden_size // self.num_heads
+        q = q.view(batch_size, -1, self.num_heads, head_dim).transpose(1, 2)
+        k = k.view(batch_size, -1, self.num_heads, head_dim).transpose(1, 2)
+        v = v.view(batch_size, -1, self.num_heads, head_dim).transpose(1, 2)
+
+        # 应用缩放点积注意力
+        context, attention = self.scaled_dot_product_attention(q, k, v, mask)
+
+        # 拼接多个头的输出
+        context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.hidden_size)
+
+        # 通过线性层
+        output = self.linear(context)
+        output = self.dropout_layer(output)
+
+        # 残差连接和层归一化
+        output = self.layer_norm(output + residual)
+
         return output, attention
 
 
