@@ -2,6 +2,7 @@ import json
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from einops import einsum, repeat
 
 
 class TransformerConfig:
@@ -56,7 +57,6 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 
-from einops import einsum
 
 
 class ScaledDotProductAttention(nn.Module):
@@ -87,6 +87,8 @@ class ScaledDotProductAttention(nn.Module):
         scores = einsum(q, k, 'b h i d, b h j d -> b h i j') / sqrt_d_k 
 
         if mask is not None:
+            # print("scores.shape", scores.shape)
+            # print("mask.shape", mask.shape)
             scores = scores.masked_fill(mask == 0, -1e9) # mask到的位置不能被 attention 注意到，本来是赋值为0，但是待会有softmax，应该给-inf。
 
         attention = self.softmax(scores)
@@ -121,6 +123,7 @@ class MultiHeadAttention(nn.Module):
         v: torch.Tensor,  # [batch_size, num_heads, seq_len, hidden_size / num_heads]
         mask: torch.Tensor  # [batch_size, 1, seq_len, seq_len]
     ):
+        mask = mask.unsqueeze(1)
         residual = q
         batch_size = q.size(0)
 
@@ -186,6 +189,50 @@ class EncoderLayer(nn.Module):
         return x
 
 
+import torch
+from functools import partial
+
+def make_attention_mask(pad_mask: torch.Tensor, is_decoder: bool) -> torch.Tensor:
+    """
+    生成 Encoder 或 Decoder 的 [batch, 1, seq, seq] 自注意力 mask。
+
+    参数：
+      pad_mask: [batch, seq_len]，1 表示有效 token，0 表示 padding。
+      is_decoder: True 则生成下三角 causal mask，否则全 1。
+
+    返回：
+      mask: [batch, 1, seq_len, seq_len]，bool dtype。
+    """
+    batch, seq_len = pad_mask.shape
+    device = pad_mask.device
+
+    # —— 第一步：底板 mask（bool）
+    if is_decoder:
+        # 下三角 causal
+        base = torch.tril(torch.ones((seq_len, seq_len), 
+                                     dtype=torch.bool, 
+                                     device=device))
+    else:
+        # 全 1
+        base = torch.ones((seq_len, seq_len), 
+                          dtype=torch.bool, 
+                          device=device)
+
+    # 扩展到 batch 维度
+    base = base.unsqueeze(0).expand(batch, seq_len, seq_len)  # [b, seq, seq]
+
+    # —— 第二步：根据 pad_mask 屏蔽行 & 列
+    # row_ok[b,i,j] = pad_mask[b,i]
+    row_ok = pad_mask.bool().unsqueeze(2).expand(batch, seq_len, seq_len)
+    # col_ok[b,i,j] = pad_mask[b,j]
+    col_ok = pad_mask.bool().unsqueeze(1).expand(batch, seq_len, seq_len)
+
+    mask2d = base & row_ok & col_ok  # [b, seq, seq]
+    return mask2d.unsqueeze(1)       # -> [b, 1, seq, seq]
+
+make_decoder_mask = partial(make_attention_mask, is_decoder=True)
+make_encoder_mask = partial(make_attention_mask, is_decoder=False)
+
 class Encoder(nn.Module):
     def __init__(self, config):
         super(Encoder, self).__init__()
@@ -195,9 +242,16 @@ class Encoder(nn.Module):
             [EncoderLayer(config) for _ in range(config.num_layers)]
         )
 
-    def forward(self, source_ids, source_mask):
+    def forward(self, source_ids, 
+            source_mask:torch.Tensor # [batch_size, seq_len]
+            ):
+        # print(f"Encoder source_mask.shape is {source_mask.shape}")
+        # print(f"Encoder source_mask is {source_mask}")
+        
         x = self.embedding(source_ids)
         x = self.position_embedding(x)
+        # 将 source_mask 从 [batch_size, seq_len] 转换为 [batch_size, 1, seq_len, seq_len]
+        # source_mask = make_encoder_mask(source_mask)
         source_mask = source_mask.unsqueeze(1)
         for layer in self.layers:
             x = layer(x, source_mask)
@@ -236,8 +290,16 @@ class Decoder(nn.Module):
         )
 
     def forward(self, target_ids, encoder_output, source_mask, target_mask):
+        # print(f"Decoder source_mask.shape is {source_mask.shape}")
+        # print(f"Decoder target_mask.shape is {target_mask.shape}")
+        # print(f"Decoder source_mask is {source_mask}")
+        # print(f"Decoder target_mask is {target_mask}")
+        # print(f"target_ids.device = {target_ids.device}")
         x = self.embedding(target_ids)
         x = self.position_embedding(x)
+
+        # source_mask = make_decoder_mask(source_mask)
+        # target_mask = make_decoder_mask(target_mask)
         source_mask = source_mask.unsqueeze(1)
         target_mask = target_mask.unsqueeze(1)
         for layer in self.layers:

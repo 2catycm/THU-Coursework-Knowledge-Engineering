@@ -64,18 +64,26 @@ def greedy_decoder(
     with open(target_vocab_path, "r", encoding="utf-8") as f:
         target_vocab = json.load(f)
     encoder_output = model.encoder(source_ids, source_mask)
-    decoder_input = torch.tensor([[]], dtype=torch.long)
+    device = encoder_output.device
+    # batch_size = encoder_output.size(0)
+    decoder_input = torch.tensor([[]], dtype=torch.long).to(device)
     next_token = target_vocab["<BOS>"]
     while decoder_input.shape[1] < max_len:
         decoder_input = torch.cat(
-            [decoder_input, torch.tensor([[next_token]], dtype=torch.long)], dim=1
+            [decoder_input, torch.tensor([[next_token]], dtype=torch.long).to(device)], dim=1
         )
-        target_mask = torch.ones_like(decoder_input)
+        target_mask = torch.ones_like(decoder_input).to(device)
         decoder_output = model.decoder(
             decoder_input, encoder_output, source_mask, target_mask
         )
         logits = model.linear(decoder_output)
-        next_token = torch.argmax(logits[:, -1, :]).item()
+        # print(logits.shape)
+        # print(logits.flatten()[:10])
+        # next_token = torch.argmax(logits.flatten()).item()
+        logits = logits[:, -1, :]
+        assert len(logits.flatten()) == len(target_vocab)
+        next_token = torch.topk(logits.flatten(), k=2).indices[1].item()
+        # print(next_token)
         if next_token == target_vocab["<EOS>"]:
             break
     return decoder_input[:, 1:]

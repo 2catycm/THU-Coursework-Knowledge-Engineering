@@ -8,7 +8,10 @@ from torch.utils.data import DataLoader, Dataset
 from torch.optim import Adam
 from utils import collate_fn, get_linear_schedule_with_warmup, greedy_decoder, decode
 from tqdm import tqdm
-
+from accelerate import Accelerator
+accelerator = Accelerator(
+    # dynamo_backend = "onnxrt"
+)
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -21,6 +24,7 @@ def parse_args():
         "--valid_data_path", type=str, default="data/processed/valid.json"
     )
     parser.add_argument("--batch_size", type=int, default=32)
+    # parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--config_path", type=str, default="config.json")
     parser.add_argument("--num_warmup_steps", type=int, default=32)
@@ -58,7 +62,9 @@ if os.path.exists(os.path.join(args.model_path, "model_" + str(args.ckpt) + ".bi
         torch.load(os.path.join(args.model_path, "model_" + str(args.ckpt) + ".bin"))
     )
 else:
-    os.mkdir(args.model_path)
+    if not os.path.exists(args.model_path):
+        os.mkdir(args.model_path)
+model = accelerator.prepare(model)
 # 训练模式
 if args.mode == "train":
     model.train()
@@ -68,9 +74,11 @@ if args.mode == "train":
         batch_size=args.batch_size,
         shuffle=True,
         collate_fn=collate_fn,
+        
     )
     # 定义损失函数
     criterion = torch.nn.CrossEntropyLoss()
+    criterion = criterion.cuda()
     # 定义优化器
     optimizer = Adam(model.parameters(), lr=args.lr)
     # 加载优化器参数
@@ -98,12 +106,17 @@ if args.mode == "train":
             )
         )
     # 训练循环
+    lr_scheduler, optimizer, dataloader, criterion = accelerator.prepare(
+        lr_scheduler, optimizer, dataloader, criterion
+    )
     for epoch in range(args.num_epochs):
-        for batch in tqdm(dataloader):
+        bar = tqdm(dataloader)
+        for batch in bar:
             source_ids, source_mask, target_ids, target_mask = batch
             output = model(source_ids, source_mask, target_ids, target_mask)
             loss = criterion(output.view(-1, output.size(-1)), target_ids.view(-1))
-            print(loss.item())
+            # print(loss.item())
+            bar.set_postfix(loss=loss.item())
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -126,26 +139,40 @@ if args.mode == "train":
 # 评估模式
 else:
     model.eval()
+    from torch.utils.data import Dataset, Subset, DataLoader
+    dataset = MyDataset(args.valid_data_path)
+    # subset_indices = range(1000)  
+    # subset_indices = range(5)  
+    subset_indices = range(10)  
+    dataset = Subset(dataset, subset_indices)
     dataloader = DataLoader(
-        MyDataset(args.valid_data_path),
+        dataset,
+        # batch_size=args.batch_size,
         batch_size=1,
         shuffle=False,
         collate_fn=collate_fn,
     )
     candidate_corpus = []
     references_corpus = []
+    dataloader = accelerator.prepare(dataloader)
     # 评估循环
-    for batch in dataloader:
+    bar = tqdm(dataloader)
+    for batch in bar:
         source_ids, source_mask, target_ids, target_mask = batch
+        print(target_ids)
         prediction = greedy_decoder(
             model, config_dict["target_vocab_path"], source_ids, source_mask
         )
+        # print(prediction.shape)
+        print(prediction)
         candidate_corpus.append(
             decode(config_dict["target_vocab_path"], prediction.squeeze(0))
         )
         references_corpus.append(
-            decode(config_dict["target_vocab_path"], target_ids[1:-1])
+            decode(config_dict["target_vocab_path"], target_ids[0][1:-1])
         )
     # 计算BLEU
+    print("参考答案", references_corpus[:5])
+    print("预测答案", candidate_corpus[:5])
     bleu = bleu_score(references_corpus, candidate_corpus, max_n=4)
     print(f"Valid BLEU score={bleu}")
