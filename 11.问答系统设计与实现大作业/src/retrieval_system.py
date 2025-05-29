@@ -1,11 +1,24 @@
-import os
 import json
-import jieba
 from whoosh.index import create_in, open_dir, exists_in
 from whoosh.fields import Schema, TEXT, ID
 from whoosh.analysis import Tokenizer, Token
 from whoosh.qparser import QueryParser, MultifieldParser
 from whoosh.searching import Searcher
+
+import jieba
+import os
+import tempfile
+
+# Create a user-specific temp directory or a directory within your project
+# For example, a .cache directory in your project's root
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # Assuming script is in src
+jieba_cache_dir = os.path.join(project_root, '.jieba_cache')
+if not os.path.exists(jieba_cache_dir):
+    os.makedirs(jieba_cache_dir)
+
+jieba_cache_file = os.path.join(jieba_cache_dir, 'jieba.cache')
+jieba.dt.cache_file = jieba_cache_file # Set the cache file path for the default tokenizer
+
 
 # --- Configuration ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # Assumes script is in src
@@ -36,17 +49,21 @@ STOPWORDS = load_stopwords(STOPWORDS_FILE)
 # --- Step a) Part 1: Preprocessing logic for Whoosh Analyzer and Questions ---
 class ChineseTokenizer(Tokenizer):
     """Custom Whoosh Tokenizer for Chinese text using Jieba."""
-    def __call__(self, text, **kargs):
-        words = jieba.lcut(text) # Use lcut for precise mode, returns list
-        token = Token()
+    def __call__(self, text:str, **kargs):
+        words = jieba.lcut(text) 
+        token_instance = Token() # Create one Token object to reuse
+        current_pos = 0
         for word in words:
             word_clean = word.strip()
+            # Ensure it's not a stopword and not just whitespace
             if word_clean and word_clean.lower() not in STOPWORDS and not word_clean.isspace():
-                token.original = token.text = word_clean
-                token.boost = 1.0
-                token.pos = None # Not tracking position for simplicity here
-                token.removed = False
-                yield token
+                token_instance.text = word_clean
+                token_instance.original = word_clean
+                token_instance.pos = current_pos # Assign current position
+                # token_instance.startchar = start_char # Optional: if you track character offsets
+                # token_instance.endchar = end_char   # Optional
+                yield token_instance
+                current_pos += 1
 
 def chinese_analyzer():
     """Returns a custom Whoosh Analyzer for Chinese text."""
