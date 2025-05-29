@@ -1,2 +1,5 @@
 whoosh
 jieba
+accelerate
+--no-use-pep517 flash-linear-attention==0.1.2
+'transformers>=4.48.0'

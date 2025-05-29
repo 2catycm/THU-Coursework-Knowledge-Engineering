@@ -1,3 +1,5 @@
 indexdir
 .jieba_cache
 data
+qwen3_qc_output_debug
+sbert_qc_output_debug
