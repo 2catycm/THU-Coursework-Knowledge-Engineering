@@ -3,3 +3,9 @@ indexdir
 data
 qwen3_qc_output_debug
 sbert_qc_output_debug
+qa_model*
+qwen3*
+question*
+sentence_ranker*
+sft*
+tmp_trainer
