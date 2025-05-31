@@ -11,7 +11,7 @@ from sentence_transformers import SentenceTransformer, InputExample
 from sentence_transformers.cross_encoder import CrossEncoder, CrossEncoderTrainingArguments, losses
 from sentence_transformers.cross_encoder import CrossEncoder, CrossEncoderTrainer, losses
 from sentence_transformers.cross_encoder.evaluation import CrossEncoderRerankingEvaluator
-from sentence_transformers.trainer import SentenceTransformerTrainer as CrossEncoderTrainer # Corrected Trainer import
+
 from sentence_transformers.util import mine_hard_negatives
 from sklearn.model_selection import train_test_split
 
@@ -33,7 +33,8 @@ BASE_MODEL_TYPE = "Qwen3_0.6B" # Change this to experiment
 BASE_MODEL_TYPE = "GTE" # Change this to experiment
 
 # Option to incorporate question type from Task 2
-USE_QUESTION_TYPE_FEATURE = True # Set to False to train without it for comparison
+# USE_QUESTION_TYPE_FEATURE = True # Set to False to train without it for comparison
+USE_QUESTION_TYPE_FEATURE = False
 
 # Paths
 DATA_DIR = "./data/"
@@ -78,9 +79,12 @@ TRUST_REMOTE_CODE_CROSS_ENCODER = MODEL_CONFIG[BASE_MODEL_TYPE]["trust_remote_co
 BI_ENCODER_FOR_MINING_NAME = "DMetaSoul/sbert-chinese-general-v1" # SBERT is good for this
 
 # Training parameters
+# NUM_EPOCHS = 5 
 NUM_EPOCHS = 1 # CrossEncoders often fine-tune quickly, especially with good data
-TRAIN_BATCH_SIZE = 16 # Adjust based on GPU memory
-EVAL_BATCH_SIZE = 32
+# TRAIN_BATCH_SIZE = 16 # Adjust based on GPU memory
+# EVAL_BATCH_SIZE = 32
+TRAIN_BATCH_SIZE = 64 # Adjust based on GPU memory
+EVAL_BATCH_SIZE = 64
 LEARNING_RATE = 2e-5 # Common starting point for fine-tuning
 WARMUP_STEPS_RATIO = 0.1
 # MAX_SEQ_LENGTH_CROSS_ENCODER = 256 # Max length for [CLS] Q [SEP] S [SEP]
@@ -474,12 +478,28 @@ if __name__ == '__main__':
         # Create a dummy evaluator or handle this case if dev_items could be empty
         dev_evaluator = None
     else:
+        import random
+        print(dev_evaluator_data[0]) # Debug print to check the first item
+        length = len(dev_evaluator_data)
+        for i, item in enumerate(dev_evaluator_data):
+            # 如果没有 negative，就从其他句子中随机抽取一些positive作为 negative
+            negatives = item.get('negative', [])
+            if len(negatives) == 0:
+                # 从所有正面句子中随机抽取一些作为负面句子
+                
+                dev_evaluator_data[i]['negative'] = [
+                    dev_evaluator_data[i]['positive'][0]
+                    for i in random.sample(range(length), 3)
+                ]
+
         dev_evaluator = CrossEncoderRerankingEvaluator(
             samples=dev_evaluator_data,
             name='dev_reranker',
-            mrr_at_k=[1, 3, 5, 10], # Configure which MRR@k values to compute
+            # mrr_at_k=[1, 3, 5, 10], # Configure which MRR@k values to compute
+            at_k = 10,
             write_csv=True,
-            batch_size=EVAL_BATCH_SIZE
+            batch_size=EVAL_BATCH_SIZE,
+            show_progress_bar=True,
         )
 
     # 7. Define Training Arguments
@@ -501,7 +521,7 @@ if __name__ == '__main__':
         save_strategy="epoch", # Save model at the end of each epoch
         save_total_limit=2,
         load_best_model_at_end=True, # Requires eval_strategy and metric_for_best_model
-        metric_for_best_model="dev_reranker_MRR@10", # Example: Use MRR@10 from dev_reranker
+        metric_for_best_model="dev_reranker_mrr@10", # Example: Use MRR@10 from dev_reranker
         logging_steps=max(1, len(train_hf_dataset) // (TRAIN_BATCH_SIZE * 10) if TRAIN_BATCH_SIZE > 0 else 100), # Log ~10 times per epoch
         run_name=run_name,
         # dataloader_num_workers=os.cpu_count() // 2 if os.cpu_count() else 2 # Optional: for data loading
